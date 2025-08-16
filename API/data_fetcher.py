@@ -31,34 +31,9 @@ class FetchData:
             symbol=self.symbol, limit=limit, fromId=from_id
         )
 
-    def _to_milliseconds(self, date_str: str | None) -> int | None:
-        if date_str is None:
-            return None
-        # Try ISO format first (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
-        try:
-            dt = datetime.fromisoformat(date_str)
-        except ValueError:
-            # Try Binance-style string like "1 Jan, 2025"
-            try:
-                dt = datetime.strptime(date_str, "%d %b, %Y")
-            except ValueError:
-                raise ValueError(f"Unsupported date format: {date_str}")
-        return int(dt.timestamp() * 1000)
-
-    def fetch_klines(
-        self,
-        interval: str,
-        start_time: str = None,
-        end_time: str = None,
-        limit: int = 1000,
-    ) -> List[List[Any]]:
-        start_ms = self._to_milliseconds(start_time)
-        end_ms = self._to_milliseconds(end_time)
-
+    def fetch_klines(self, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit: int = 1000):
         return self.client.get_klines(
             symbol=self.symbol,
             interval=interval,
-            startTime=start_ms,
-            endTime=end_ms,
             limit=limit
         )

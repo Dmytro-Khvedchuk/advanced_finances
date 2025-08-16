@@ -39,10 +39,8 @@ def main():
 
     bars_maker = Bars(client, data_fetcher)
 
-    bars = bars_maker.get_dollar_bars(BAR_SIZE)
-
+    bars = bars_maker.get_kline_bars()
     print(bars)
-
 
 if __name__ == "__main__":
     main()
