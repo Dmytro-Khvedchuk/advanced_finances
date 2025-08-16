@@ -1,11 +1,12 @@
 import polars as pl
+from typing import Any
 
-def build_dollar_bars(data, bar_size: float) -> pl.DataFrame:
+
+def build_dollar_bars(data, bar_size: float) -> tuple[pl.DataFrame | Any, pl.DataFrame]:
     df = pl.DataFrame(data).select(
         pl.col('price').cast(pl.Float64),
         pl.col('quoteQty').cast(pl.Float64),
         pl.col('id').cast(pl.Int64),
-        pl.col('isBuyerMaker').cast(pl.Boolean),
     ).sort('id')
 
     bar_id = 1
@@ -39,6 +40,6 @@ def build_dollar_bars(data, bar_size: float) -> pl.DataFrame:
 
         bar_id += 1
 
-    unfinished_part = 0
+    unfinished_part = pl.DataFrame()
 
     return bars, unfinished_part
