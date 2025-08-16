@@ -13,11 +13,12 @@ def build_dollar_bars(data, bar_size: float) -> tuple[pl.DataFrame | Any, pl.Dat
     bars = pl.DataFrame()
 
     while not df.is_empty():
-        df = df.with_columns(pl.col("quoteQty").cum_sum().alias("cum_dol"))
+        df = df.with_columns(pl.col("quoteQty").cum_sum().alias("cumulative_dollar_volume"))
 
-        cross_mask = (pl.col("cum_dol") >= bar_size) & (pl.col("cum_dol").shift(1) < bar_size)
+        cross_mask = ((pl.col("cumulative_dollar_volume") >= bar_size) &
+                      (pl.col("cumulative_dollar_volume").shift(1) < bar_size))
 
-        df_until_cross = df.filter((pl.col("cum_dol") < bar_size) | cross_mask)
+        df_until_cross = df.filter((pl.col("cumulative_dollar_volume") < bar_size) | cross_mask)
 
         if df_until_cross.is_empty():
             break
@@ -36,7 +37,7 @@ def build_dollar_bars(data, bar_size: float) -> tuple[pl.DataFrame | Any, pl.Dat
 
         bars = bar_row if bars.is_empty() else pl.concat([bars, bar_row], how="vertical")
 
-        df = df.join(df_until_cross.select("id"), on="id", how="anti").drop("cum_dol")
+        df = df.join(df_until_cross.select("id"), on="id", how="anti").drop("cumulative_dollar_volume")
 
         bar_id += 1
 

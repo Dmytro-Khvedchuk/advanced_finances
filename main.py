@@ -14,7 +14,7 @@ LEVEL_MAP = {
     "CRITICAL": 50,
 }
 
-BAR_SIZE = 200000
+BAR_SIZE = 100000
 
 
 def pick_log_level():
