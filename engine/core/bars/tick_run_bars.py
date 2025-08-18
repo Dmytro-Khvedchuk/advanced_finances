@@ -1,7 +1,7 @@
 import polars as pl
 
 
-def build_dollar_imbalance_bars(
+def build_tick_run_bars(
         data,
         *,
         alpha: float = 1.0,
@@ -10,18 +10,18 @@ def build_dollar_imbalance_bars(
         drop_last_incomplete: bool = True,
 ) -> pl.DataFrame:
     """
-    Build Dollar Imbalance Bars (DIBs) as described by López de Prado (2018).
+    Build Tick Run Bars (TRBs) as described by López de Prado (2018).
 
     Parameters
     ----------
     data : list[dict] or pl.DataFrame
         Trades with columns: price, qty, time, id, isBuyerMaker
     alpha : float
-        Sensitivity multiplier for threshold (default=1.0).
+        Sensitivity multiplier for threshold.
     ema_span : int
-        Span for EMA expectation of imbalance.
+        Span for EMA of expected run length.
     warmup_ticks : int
-        Number of ticks to collect before activating imbalance rule.
+        Number of ticks to collect before activating run rule.
     drop_last_incomplete : bool
         Whether to drop last unfinished bar.
     """
@@ -38,49 +38,56 @@ def build_dollar_imbalance_bars(
     df = df.with_columns((~pl.col("isBuyerMaker")).alias("buyer_taker"))
 
     bars = []
-    signed_dollar_sum = 0.0
     bar_ticks = []
     bar_id = 0
 
-    # initialize EMA with first warmup_ticks
-    signed_dollar_flows = []
+    run_length = 0
+    prev_sign = None
+    run_history = []
+
     for i, row in enumerate(df.iter_rows(named=True)):
         sign = 1 if row["buyer_taker"] else -1
-        dollar_flow = sign * row["price"] * row["qty"]
-        signed_dollar_flows.append(abs(dollar_flow))
-
         bar_ticks.append(row)
-        signed_dollar_sum += dollar_flow
+
+        # update run length
+        if prev_sign is None or sign == prev_sign:
+            run_length += 1
+        else:
+            run_history.append(run_length)
+            run_length = 1
+        prev_sign = sign
 
         if i < warmup_ticks:
             continue
 
-        # compute EMA expectation of |dollar_flow|
-        if len(signed_dollar_flows) > ema_span:
-            weights = [(1 - 2 / (ema_span + 1)) ** k for k in range(len(signed_dollar_flows))]
+        # compute EMA of past run lengths
+        if len(run_history) > ema_span:
+            weights = [(1 - 2 / (ema_span + 1)) ** k for k in range(len(run_history))]
             denom = sum(weights)
-            ema = sum(v * w for v, w in zip(reversed(signed_dollar_flows), weights)) / denom
+            ema = sum(v * w for v, w in zip(reversed(run_history), weights)) / denom
         else:
-            ema = sum(signed_dollar_flows) / len(signed_dollar_flows)
+            ema = sum(run_history) / len(run_history) if run_history else 1.0
 
         threshold = alpha * ema
 
-        # check imbalance condition
-        if abs(signed_dollar_sum) >= threshold:
+        # close bar if run length >= threshold
+        if run_length >= threshold:
             bar_df = pl.DataFrame(bar_ticks)
             bars.append(bar_df.with_columns(pl.lit(bar_id).alias("bar_id")))
             bar_id += 1
 
-            # reset bar state
-            signed_dollar_sum = 0.0
+            # reset state
             bar_ticks = []
+            run_length = 0
+            prev_sign = None
+            run_history = []
 
     if not bar_ticks or drop_last_incomplete:
         final = pl.concat(bars)
     else:
         final = pl.concat(bars + [pl.DataFrame(bar_ticks).with_columns(pl.lit(bar_id).alias("bar_id"))])
 
-    # aggregate bars like OHLCV
+    # aggregate bars to OHLCV
     result = (
         final.group_by("bar_id", maintain_order=True)
         .agg([

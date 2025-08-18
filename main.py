@@ -14,7 +14,7 @@ LEVEL_MAP = {
     "CRITICAL": 50,
 }
 
-BAR_SIZE = 200000
+BAR_SIZE = 100000
 
 
 def pick_log_level():
@@ -39,10 +39,8 @@ def main():
 
     bars_maker = Bars(client, data_fetcher)
 
-    bars = bars_maker.get_dollar_bars(BAR_SIZE)
-
+    bars = bars_maker.get_kline_bars()
     print(bars)
-
 
 if __name__ == "__main__":
     main()
