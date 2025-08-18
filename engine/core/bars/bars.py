@@ -4,6 +4,7 @@ from engine.core.bars.dollar_bars import build_dollar_bars
 from engine.core.bars.time_bars import build_time_bars
 from engine.core.bars.volume_bars import build_volume_bars
 from engine.core.bars.tick_bars import build_tick_bars
+from engine.core.bars.tick_imbalance_bars import build_tick_imbalance_bars
 
 class Bars:
     def __init__(self, client: Client, data_fetcher: FetchData):
@@ -33,3 +34,7 @@ class Bars:
     def get_kline_bars(self):
         klines_data = self._get_klines_data()
         return build_time_bars(klines_data)
+
+    def get_tick_imbalance_bars(self):
+        trades_data = self._get_trades_data()
+        return build_tick_imbalance_bars(trades_data)
