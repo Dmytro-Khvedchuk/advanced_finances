@@ -1,25 +1,6 @@
 import polars as pl
 from typing import List, Dict, Any
-
-DEFAULT_SCHEMA = {
-    "start_time": pl.Int64,
-    "end_time": pl.Int64,
-    "open": pl.Float64,
-    "high": pl.Float64,
-    "low": pl.Float64,
-    "close": pl.Float64,
-    "n_ticks": pl.Int64,
-    "base_volume": pl.Float64,
-    "quote_volume": pl.Float64,
-    "buy_ticks": pl.Int64,
-    "buy_volume": pl.Float64,
-    "sell_ticks": pl.Int64,
-    "sell_volume": pl.Float64,
-    "signed_tick_sum": pl.Int64,
-    "signed_volume_sum": pl.Float64,
-    "first_trade_id": pl.Int64,
-    "last_trade_id": pl.Int64,
-}
+from utils.global_variables.SCHEMAS import TIBS_SCHEMA
 
 
 def build_tick_imbalance_bars(
@@ -28,47 +9,25 @@ def build_tick_imbalance_bars(
     alpha: float = 1.0,
     ema_span: int = 50,
     warmup_ticks: int = 200,
-    drop_last_incomplete: bool = True,
-) -> pl.DataFrame:
+) -> tuple[pl.DataFrame | Any, pl.DataFrame]:
     """
-    Build Tick Imbalance Bars (TIB) from trade-level data.
-
-    Parameters
-    ----------
-    data : sequence | dict | pl.DataFrame
-        Must contain columns: ["price", "qty", "time", "id", "isBuyerMaker"].
-        - price: float
-        - qty: float (base quantity)
-        - time: int (epoch ms or ns; only used for ordering and bar start/end)
-        - id: int (exchange trade id)
-        - isBuyerMaker: bool (True if SELL taker; Binance convention)
-    alpha : float, default 1.0
-        Scaling factor in the stopping rule threshold.
-    ema_span : int, default 50
-        Span for EMA updates of expected ticks per bar and expected imbalance.
+    Build tick imbalance bars from raw data
+    :param data: raw fetched data from binance, or directly a polars dataframe
+    :param alpha: Scaling factor in the stopping rule threshold.
+    :param ema_span: Span for EMA updates of expected ticks per bar and expected imbalance.
         (EMA alpha is computed as 2/(span+1)).
-    warmup_ticks : int, default 200
-        Use the first `warmup_ticks` trades to seed initial expectations.
+    :param warmup_ticks: Use the first `warmup_ticks` trades to seed initial expectations.
         If not enough ticks exist, the function degrades gracefully.
-    drop_last_incomplete : bool, default True
-        If True, drop the final bar if it did not meet the imbalance threshold.
-
-    Returns
-    -------
-    pl.DataFrame
-        Columns:
-            start_time, end_time,
-            open, high, low, close,
-            n_ticks, base_volume, quote_volume,
-            buy_ticks, buy_volume, sell_ticks, sell_volume,
-            signed_tick_sum, signed_volume_sum,
-            first_trade_id, last_trade_id
+    :return: tick imbalance bars, unfinished part
     """
 
-    # --- Prepare & sort ---
+    if isinstance(data, pl.DataFrame):
+        df = data
+    else:
+        df = pl.DataFrame(data)
+
     df = (
-        pl.DataFrame(data)
-        .select(
+        df.select(
             pl.col("price").cast(pl.Float64),
             pl.col("qty").cast(pl.Float64),
             pl.col("time").cast(pl.Int64),
@@ -81,7 +40,7 @@ def build_tick_imbalance_bars(
 
     # Nothing to do?
     if df.height == 0:
-        return pl.DataFrame(schema=DEFAULT_SCHEMA)
+        return pl.DataFrame(schema=TIBS_SCHEMA), pl.DataFrame()
 
     # Convert to Python lists for fast iterative bar construction
     price = df["price"].to_list()
@@ -97,7 +56,7 @@ def build_tick_imbalance_bars(
     if w_end == 0:
         # Fallback: return a single bar with everything, if caller insists
         # (Or just return empty; here we choose empty since imbalance has no meaning without data)
-        return pl.DataFrame()
+        return pl.DataFrame(), pl.DataFrame()
 
     warmup_n = w_end  # ticks used for warmup
     # Absolute mean of sign in warmup as theta_0; clamp away from zero to avoid division by zero thresholds.
@@ -140,13 +99,6 @@ def build_tick_imbalance_bars(
                 break
 
             bar_end_idx += 1
-
-        # If we reached the end without hitting the threshold
-        bar_completed = bar_end_idx < n
-        if not bar_completed:
-            # If we don't want partial bars, exit; else include the partial as the last bar
-            if drop_last_incomplete:
-                break
 
         # Now compute bar aggregates over [bar_start_idx, bar_end_idx]
         i0, i1 = bar_start_idx, min(bar_end_idx, n - 1)
@@ -229,4 +181,7 @@ def build_tick_imbalance_bars(
             pl.col("first_trade_id").cast(pl.Int64),
             pl.col("last_trade_id").cast(pl.Int64),
         )
-    return bars
+
+    unfinished_part = pl.DataFrame()
+
+    return bars, unfinished_part

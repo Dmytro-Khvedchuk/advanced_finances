@@ -1,20 +1,28 @@
 import polars as pl
+from typing import Any
 
 
 def build_tick_bars(
-    data, bar_size: int = 10, drop_last_incomplete: bool = False
-) -> pl.DataFrame:
-    df = (
-        pl.DataFrame(data)
-        .select(
-            pl.col("price").cast(pl.Float64),
-            pl.col("qty").cast(pl.Float64),
-            pl.col("time").cast(pl.Int64),
-            pl.col("id").cast(pl.Int64),
-            pl.col("isBuyerMaker").cast(pl.Boolean),
-        )
-        .sort("time")
-    )
+    data, bar_size: int = 10
+) -> tuple[pl.DataFrame | Any, pl.DataFrame]:
+    """
+    Build a tick bars from raw data
+    :param data: raw fetched data from binance, or directly a polars dataframe
+    :param bar_size: amount of ticks for a bar formation
+    :return: tick bars, unfinished part
+    """
+    if isinstance(data, pl.DataFrame):
+        df = data
+    else:
+        df = pl.DataFrame(data)
+
+    df = df.select(
+        pl.col("price").cast(pl.Float64),
+        pl.col("qty").cast(pl.Float64),
+        pl.col("time").cast(pl.Int64),
+        pl.col("id").cast(pl.Int64),
+        pl.col("isBuyerMaker").cast(pl.Boolean),
+    ).sort("time")
 
     df = (
         df.with_row_index(name="row_idx")
@@ -66,7 +74,6 @@ def build_tick_bars(
         .sort("bar_id")
     )
 
-    if drop_last_incomplete:
-        bars = bars.filter(pl.col("n_ticks") == bar_size)
+    unfinished_part = pl.DataFrame()
 
-    return bars
+    return bars, unfinished_part

@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from binance.client import Client
 from os import getenv
 from API.data_fetcher import FetchData
+from engine.apps.data_managers.market_data_manager import MarketDataManager
 from engine.core.bars.bars import Bars
 from utils.charts.chart import Chart
 import polars as pl
@@ -13,8 +14,6 @@ LEVEL_MAP = {
     "ERROR": 40,
     "CRITICAL": 50,
 }
-
-BAR_SIZE = 100000
 
 
 def pick_log_level():

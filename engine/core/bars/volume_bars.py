@@ -1,18 +1,24 @@
 import polars as pl
+from typing import Any
 
 
-def build_volume_bars(
-    data, bar_size: float, drop_last_incomplete: bool = False
-) -> pl.DataFrame:
-    df = (
-        pl.DataFrame(data)
-        .select(
-            pl.col("price").cast(pl.Float64),
-            pl.col("qty").cast(pl.Float64),
-            pl.col("id").cast(pl.Int64),
-        )
-        .sort("id")
-    )
+def build_volume_bars(data, bar_size: float) -> tuple[pl.DataFrame | Any, pl.DataFrame]:
+    """
+    Build a volume bars from raw data
+    :param data: raw fetched data from binance, or directly a polars dataframe
+    :param bar_size: amount of dollars for a bar formation
+    :return: volume bars, unfinished part
+    """
+    if isinstance(data, pl.DataFrame):
+        df = data
+    else:
+        df = pl.DataFrame(data)
+
+    df = df.select(
+        pl.col("price").cast(pl.Float64),
+        pl.col("qty").cast(pl.Float64),
+        pl.col("id").cast(pl.Int64),
+    ).sort("id")
 
     bar_id = 1
     bars = pl.DataFrame()

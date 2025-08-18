@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import Dict, Any, List, Optional
 from binance.client import Client
-from datetime import datetime
 
 
 class FetchData:

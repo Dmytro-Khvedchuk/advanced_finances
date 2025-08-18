@@ -1,4 +1,5 @@
 import polars as pl
+from typing import Any
 
 
 def build_volume_imbalance_bars(
@@ -7,19 +8,29 @@ def build_volume_imbalance_bars(
     alpha: float = 1.0,
     ema_span: int = 50,
     warmup_ticks: int = 200,
-    drop_last_incomplete: bool = True,
-) -> pl.DataFrame:
-    df = (
-        pl.DataFrame(data)
-        .select(
-            pl.col("price").cast(pl.Float64),
-            pl.col("qty").cast(pl.Float64),
-            pl.col("time").cast(pl.Int64),
-            pl.col("id").cast(pl.Int64),
-            pl.col("isBuyerMaker").cast(pl.Boolean),
-        )
-        .sort("time")
-    )
+) -> tuple[pl.DataFrame | Any, pl.DataFrame]:
+    """
+    Build volume imbalance bars from raw data
+    :param data: raw fetched data from binance, or directly a polars dataframe
+    :param alpha: Scaling factor in the stopping rule threshold.
+    :param ema_span: Span for EMA updates of expected volume per bar and expected imbalance.
+        (EMA alpha is computed as 2/(span+1)).
+    :param warmup_ticks: Use the first `warmup_ticks` trades to seed initial expectations.
+        If not enough ticks exist, the function degrades gracefully.
+    :return: volume imbalance bars, unfinished part
+    """
+    if isinstance(data, pl.DataFrame):
+        df = data
+    else:
+        df = pl.DataFrame(data)
+
+    df = df.select(
+        pl.col("price").cast(pl.Float64),
+        pl.col("qty").cast(pl.Float64),
+        pl.col("time").cast(pl.Int64),
+        pl.col("id").cast(pl.Int64),
+        pl.col("isBuyerMaker").cast(pl.Boolean),
+    ).sort("time")
 
     df = df.with_columns(
         pl.when(~pl.col("isBuyerMaker"))
@@ -83,9 +94,8 @@ def build_volume_imbalance_bars(
             signed_cum_vol = 0.0
             bar_start_idx = i + 1
 
-    bars_df = pl.concat(bars) if bars else pl.DataFrame()
+    bars = pl.concat(bars) if bars else pl.DataFrame()
 
-    if drop_last_incomplete and bars_df.height > 0:
-        bars_df = bars_df.head(-1)
+    unfinished_part = pl.DataFrame()
 
-    return bars_df
+    return bars, unfinished_part

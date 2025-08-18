@@ -1,5 +1,6 @@
 from binance.client import Client
 from API.data_fetcher import FetchData
+import polars as pl
 from engine.core.bars.dollar_bars import build_dollar_bars
 from engine.core.bars.dollar_imbalance_bars import build_dollar_imbalance_bars
 from engine.core.bars.dollar_run_bars import build_dollar_run_bars
@@ -18,49 +19,55 @@ class Bars:
         self.data_fetcher = data_fetcher
 
     def _get_trades_data(self):
-        # TODO: this should be somehow modified to be more flexible
         return self.data_fetcher.fetch_recent_trades(limit=1000)
 
     def _get_klines_data(self):
-        # TODO: this should be somehow modified to be more flexible
         return self.data_fetcher.fetch_klines()
 
-    def get_tick_bars(self, bar_size: int = 10):
-        trades_data = self._get_trades_data()
+    def _check_trades_data(self, trades_data: pl.DataFrame = None):
+        if trades_data is None:
+            return self._get_trades_data()
+        return trades_data
+
+    def get_tick_bars(self, bar_size: int = 100, trades_data: pl.DataFrame = None):
+        trades_data = self._check_trades_data(trades_data)
         return build_tick_bars(trades_data, bar_size=bar_size)
 
-    def get_volume_bars(self, bar_size: float = 1):
-        trades_data = self._get_trades_data()
+    def get_volume_bars(self, bar_size: float = 1, trades_data: pl.DataFrame = None):
+        trades_data = self._check_trades_data(trades_data)
         return build_volume_bars(trades_data, bar_size=bar_size)
 
-    def get_dollar_bars(self, bar_size: float = 1):
-        trades_data = self._get_trades_data()
+    def get_dollar_bars(
+        self, bar_size: float = 100000, trades_data: pl.DataFrame = None
+    ):
+        trades_data = self._check_trades_data(trades_data)
         return build_dollar_bars(trades_data, bar_size=bar_size)
 
-    def get_kline_bars(self):
+    # TODO INVESTIGATE
+    def get_time_bars(self):
         klines_data = self._get_klines_data()
         return build_time_bars(klines_data)
 
-    def get_tick_imbalance_bars(self):
-        trades_data = self._get_trades_data()
+    def get_tick_imbalance_bars(self, trades_data: pl.DataFrame = None):
+        trades_data = self._check_trades_data(trades_data)
         return build_tick_imbalance_bars(trades_data)
 
-    def get_volume_imbalance_bars(self):
-        trades_data = self._get_trades_data()
+    def get_volume_imbalance_bars(self, trades_data: pl.DataFrame = None):
+        trades_data = self._check_trades_data(trades_data)
         return build_volume_imbalance_bars(trades_data)
 
-    def get_dollar_imbalance_bars(self):
-        trades_data = self._get_trades_data()
+    def get_dollar_imbalance_bars(self, trades_data: pl.DataFrame = None):
+        trades_data = self._check_trades_data(trades_data)
         return build_dollar_imbalance_bars(trades_data)
 
-    def get_tick_run_bars(self):
-        trades_data = self._get_trades_data()
+    def get_tick_run_bars(self, trades_data: pl.DataFrame = None):
+        trades_data = self._check_trades_data(trades_data)
         return build_tick_run_bars(trades_data)
 
-    def get_volume_run_bars(self):
-        trades_data = self._get_trades_data()
+    def get_volume_run_bars(self, trades_data: pl.DataFrame = None):
+        trades_data = self._check_trades_data(trades_data)
         return build_volume_run_bars(trades_data)
 
-    def get_dollar_run_bars(self):
-        trades_data = self._get_trades_data()
+    def get_dollar_run_bars(self, trades_data: pl.DataFrame = None):
+        trades_data = self._check_trades_data(trades_data)
         return build_dollar_run_bars(trades_data)
