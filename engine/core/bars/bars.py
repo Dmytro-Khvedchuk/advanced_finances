@@ -1,6 +1,7 @@
 from binance.client import Client
 from API.data_fetcher import FetchData
 from engine.core.bars.dollar_bars import build_dollar_bars
+from engine.core.bars.dollar_imbalance_bars import build_dollar_imbalance_bars
 from engine.core.bars.time_bars import build_time_bars
 from engine.core.bars.volume_bars import build_volume_bars
 from engine.core.bars.tick_bars import build_tick_bars
@@ -44,3 +45,7 @@ class Bars:
     def get_volume_imbalance_bars(self):
         trades_data = self._get_trades_data()
         return build_volume_imbalance_bars(trades_data)
+
+    def get_dollar_imbalance_bars(self):
+        trades_data = self._get_trades_data()
+        return build_dollar_imbalance_bars(trades_data)
