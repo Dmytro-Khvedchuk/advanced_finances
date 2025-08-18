@@ -20,7 +20,7 @@ class FetchData:
         return self.client.get_recent_trades(symbol=self.symbol, limit=limit)  # type: ignore[no-any-return]
 
     def fetch_historical_trades(
-            self, limit: int = 1000, from_id: Optional[int] = None
+        self, limit: int = 1000, from_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         Historical trades (older than the recent trades window).
@@ -31,9 +31,9 @@ class FetchData:
             symbol=self.symbol, limit=limit, fromId=from_id
         )
 
-    def fetch_klines(self, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit: int = 1000):
+    def fetch_klines(
+        self, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit: int = 1000
+    ):
         return self.client.get_klines(
-            symbol=self.symbol,
-            interval=interval,
-            limit=limit
+            symbol=self.symbol, interval=interval, limit=limit
         )

@@ -1,6 +1,6 @@
 class CommandLineInterface:
     def __init__(self, log_level):
-        #TODO: set logger
+        # TODO: set logger
         pass
 
-    #TODO: implement cli
+    # TODO: implement cli

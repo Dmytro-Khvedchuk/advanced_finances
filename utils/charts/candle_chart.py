@@ -4,6 +4,7 @@ from bokeh.io import show, output_file
 from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.plotting import figure
 
+
 def plot_candles_bokeh_pl(
     df,
     open_col: str = "open",
@@ -38,7 +39,14 @@ def plot_candles_bokeh_pl(
     down = ~up
 
     # --- sources ---
-    common = dict(x=bar_numbers, width=np.full_like(bar_numbers, width_units), open=o, high=h, low=l, close=c)
+    common = dict(
+        x=bar_numbers,
+        width=np.full_like(bar_numbers, width_units),
+        open=o,
+        high=h,
+        low=l,
+        close=c,
+    )
     inc_src = ColumnDataSource({k: v[up] for k, v in common.items()})
     dec_src = ColumnDataSource({k: v[down] for k, v in common.items()})
     wick_src = ColumnDataSource(dict(x=bar_numbers, high=h, low=l))
@@ -59,10 +67,24 @@ def plot_candles_bokeh_pl(
     p.segment(x0="x", y0="high", x1="x", y1="low", source=wick_src, line_width=1)
     p.yaxis.formatter = NumeralTickFormatter(format="0,0.00")
     # bodies
-    p.vbar(x="x", width="width", top="close", bottom="open",
-           source=inc_src, fill_color="#26a69a", line_color="#26a69a")
-    p.vbar(x="x", width="width", top="open", bottom="close",
-           source=dec_src, fill_color="#ef5350", line_color="#ef5350")
+    p.vbar(
+        x="x",
+        width="width",
+        top="close",
+        bottom="open",
+        source=inc_src,
+        fill_color="#26a69a",
+        line_color="#26a69a",
+    )
+    p.vbar(
+        x="x",
+        width="width",
+        top="open",
+        bottom="close",
+        source=dec_src,
+        fill_color="#ef5350",
+        line_color="#ef5350",
+    )
 
     # hover
     hover = HoverTool(
