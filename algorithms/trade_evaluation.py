@@ -30,11 +30,19 @@ class TradeEvaluation:
         if self.position == "BUY":
             commission = best_price * self.commission * self.buy_amount
             print("IN BUY FUNCTION BEST PRICE IS: ", best_price)
-            profit = best_price * self.buy_amount - self.last_order_price * self.buy_amount - commission
+            profit = (
+                best_price * self.buy_amount
+                - self.last_order_price * self.buy_amount
+                - commission
+            )
         elif self.position == "SELL":
             commission = best_price * self.commission * self.sell_amount
             print("IN SELL FUNCTION BEST PRICE IS: ", best_price)
-            profit = self.last_order_price * self.sell_amount - best_price * self.sell_amount - commission
+            profit = (
+                self.last_order_price * self.sell_amount
+                - best_price * self.sell_amount
+                - commission
+            )
         self.balance += profit
         print("Profit: ", profit)
         self.balance_history.append(self.balance)

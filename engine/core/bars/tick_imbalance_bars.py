@@ -2,23 +2,33 @@ import polars as pl
 from typing import List, Dict, Any
 
 DEFAULT_SCHEMA = {
-    "start_time": pl.Int64, "end_time": pl.Int64,
-    "open": pl.Float64, "high": pl.Float64, "low": pl.Float64, "close": pl.Float64,
-    "n_ticks": pl.Int64, "base_volume": pl.Float64, "quote_volume": pl.Float64,
-    "buy_ticks": pl.Int64, "buy_volume": pl.Float64,
-    "sell_ticks": pl.Int64, "sell_volume": pl.Float64,
-    "signed_tick_sum": pl.Int64, "signed_volume_sum": pl.Float64,
-    "first_trade_id": pl.Int64, "last_trade_id": pl.Int64,
+    "start_time": pl.Int64,
+    "end_time": pl.Int64,
+    "open": pl.Float64,
+    "high": pl.Float64,
+    "low": pl.Float64,
+    "close": pl.Float64,
+    "n_ticks": pl.Int64,
+    "base_volume": pl.Float64,
+    "quote_volume": pl.Float64,
+    "buy_ticks": pl.Int64,
+    "buy_volume": pl.Float64,
+    "sell_ticks": pl.Int64,
+    "sell_volume": pl.Float64,
+    "signed_tick_sum": pl.Int64,
+    "signed_volume_sum": pl.Float64,
+    "first_trade_id": pl.Int64,
+    "last_trade_id": pl.Int64,
 }
 
 
 def build_tick_imbalance_bars(
-        data,
-        *,
-        alpha: float = 1.0,
-        ema_span: int = 50,
-        warmup_ticks: int = 200,
-        drop_last_incomplete: bool = True,
+    data,
+    *,
+    alpha: float = 1.0,
+    ema_span: int = 50,
+    warmup_ticks: int = 200,
+    drop_last_incomplete: bool = True,
 ) -> pl.DataFrame:
     """
     Build Tick Imbalance Bars (TIB) from trade-level data.
@@ -56,22 +66,22 @@ def build_tick_imbalance_bars(
     """
 
     # --- Prepare & sort ---
-    df = (pl.DataFrame(data)
-          .select(
-        pl.col("price").cast(pl.Float64),
-        pl.col("qty").cast(pl.Float64),
-        pl.col("time").cast(pl.Int64),
-        pl.col("id").cast(pl.Int64),
-        pl.col("isBuyerMaker").cast(pl.Boolean)
+    df = (
+        pl.DataFrame(data)
+        .select(
+            pl.col("price").cast(pl.Float64),
+            pl.col("qty").cast(pl.Float64),
+            pl.col("time").cast(pl.Int64),
+            pl.col("id").cast(pl.Int64),
+            pl.col("isBuyerMaker").cast(pl.Boolean),
+        )
+        .sort("time")
+        .with_columns((~pl.col("isBuyerMaker")).alias("buyer_taker"))
     )
-          .sort("time")
-          .with_columns((~pl.col("isBuyerMaker")).alias("buyer_taker")))
 
     # Nothing to do?
     if df.height == 0:
-        return pl.DataFrame(
-            schema=DEFAULT_SCHEMA
-        )
+        return pl.DataFrame(schema=DEFAULT_SCHEMA)
 
     # Convert to Python lists for fast iterative bar construction
     price = df["price"].to_list()
@@ -141,11 +151,11 @@ def build_tick_imbalance_bars(
         # Now compute bar aggregates over [bar_start_idx, bar_end_idx]
         i0, i1 = bar_start_idx, min(bar_end_idx, n - 1)
         # Slice views
-        p_slice = price[i0: i1 + 1]
-        q_slice = qty[i0: i1 + 1]
-        t_slice = ts[i0: i1 + 1]
-        id_slice = tid[i0: i1 + 1]
-        s_slice = sign[i0: i1 + 1]
+        p_slice = price[i0 : i1 + 1]
+        q_slice = qty[i0 : i1 + 1]
+        t_slice = ts[i0 : i1 + 1]
+        id_slice = tid[i0 : i1 + 1]
+        s_slice = sign[i0 : i1 + 1]
 
         n_ticks = len(p_slice)
         base_volume = float(sum(q_slice))
@@ -160,7 +170,9 @@ def build_tick_imbalance_bars(
         sell_volume = float(sum(qi for qi, sm in zip(q_slice, sell_mask) if sm))
 
         signed_tick_sum = int(sum(s_slice))
-        signed_volume_sum = float(sum(qi if s_ > 0 else -qi for qi, s_ in zip(q_slice, s_slice)))
+        signed_volume_sum = float(
+            sum(qi if s_ > 0 else -qi for qi, s_ in zip(q_slice, s_slice))
+        )
 
         out_rows.append(
             {

@@ -34,13 +34,16 @@ def main():
     load_dotenv()
 
     chart = Chart()
-    client = Client(api_key=getenv("BINANCE_API_KEY"), api_secret=getenv("BINANCE_API_SECRET"))
+    client = Client(
+        api_key=getenv("BINANCE_API_KEY"), api_secret=getenv("BINANCE_API_SECRET")
+    )
     data_fetcher = FetchData(client, symbol="BTCUSDT")
 
     bars_maker = Bars(client, data_fetcher)
 
     bars = bars_maker.get_kline_bars()
     print(bars)
+
 
 if __name__ == "__main__":
     main()

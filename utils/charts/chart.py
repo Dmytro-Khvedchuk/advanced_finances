@@ -20,6 +20,7 @@ class Chart:
     def chart_candles(self, data):
         plot_candles_bokeh_pl(data)
 
+
 class OrderbookChart:
     def __init__(self, width=1280, height=720, title="Order Book Depth"):
         self.bid_src = ColumnDataSource(dict(price=[], qty=[], abs_qty=[]))
@@ -29,21 +30,42 @@ class OrderbookChart:
 
         tools = "pan,wheel_zoom,reset,save,hover"
         p = figure(
-            title=title, width=width, height=height,
-            x_axis_label="Quantity", y_axis_label="Price",
-            tools=tools, toolbar_location="right", active_scroll="wheel_zoom"
+            title=title,
+            width=width,
+            height=height,
+            x_axis_label="Quantity",
+            y_axis_label="Price",
+            tools=tools,
+            toolbar_location="right",
+            active_scroll="wheel_zoom",
         )
         p.yaxis.formatter = NumeralTickFormatter(format="0,0.00")
         p.xaxis.formatter = NumeralTickFormatter(format="0,0")
         p.grid.grid_line_alpha = 0.3
         p.outline_line_alpha = 0.6
 
-        p.hbar(y="price", right="qty", height=0.8, source=self.bid_src,
-               fill_alpha=0.7, fill_color="#2ca02c",
-               line_color="#1b5e20", line_width=1.5, legend_label="Bids")
-        p.hbar(y="price", right="qty", height=0.8, source=self.ask_src,
-               fill_alpha=0.7, fill_color="#d62728",
-               line_color="#7f0000", line_width=1.5, legend_label="Asks")
+        p.hbar(
+            y="price",
+            right="qty",
+            height=0.8,
+            source=self.bid_src,
+            fill_alpha=0.7,
+            fill_color="#2ca02c",
+            line_color="#1b5e20",
+            line_width=1.5,
+            legend_label="Bids",
+        )
+        p.hbar(
+            y="price",
+            right="qty",
+            height=0.8,
+            source=self.ask_src,
+            fill_alpha=0.7,
+            fill_color="#d62728",
+            line_color="#7f0000",
+            line_width=1.5,
+            legend_label="Asks",
+        )
 
         hover = p.select_one(HoverTool)
         hover.tooltips = [("Price", "@price{0,0.00}"), ("Qty", "@abs_qty{0,0.######}")]
@@ -70,7 +92,9 @@ class OrderbookChart:
             ask_bins[bucket] += q
 
         # 2) Turn into sorted lists (price axis goes down for bids, up for asks)
-        bid_items = sorted(bid_bins.items(), key=lambda x: x[0], reverse=True)[:top_levels]
+        bid_items = sorted(bid_bins.items(), key=lambda x: x[0], reverse=True)[
+            :top_levels
+        ]
         ask_items = sorted(ask_bins.items(), key=lambda x: x[0])[:top_levels]
 
         # Use bucket centers (n + 0.5) for nicer spacing; height < 1 so bars don't touch
@@ -86,8 +110,10 @@ class OrderbookChart:
 
         # 3) Set ranges & 1-dollar tick grid
         all_buckets = []
-        if bid_items: all_buckets += [b for b, _ in bid_items]
-        if ask_items: all_buckets += [b for b, _ in ask_items]
+        if bid_items:
+            all_buckets += [b for b, _ in bid_items]
+        if ask_items:
+            all_buckets += [b for b, _ in ask_items]
 
         if all_buckets:
             min_b = min(all_buckets)
@@ -106,13 +132,13 @@ class OrderbookChart:
         self.figure.x_range.end = max(right_max, 0) * 1.05
 
     def set_windowed_data(
-            self,
-            bids_list,
-            asks_list,
-            *,
-            lower: float,
-            upper: float,
-            bucket_size: float = 1.0
+        self,
+        bids_list,
+        asks_list,
+        *,
+        lower: float,
+        upper: float,
+        bucket_size: float = 1.0
     ):
         """Render bids/asks in a fixed price window with identical price buckets."""
         self.lower, self.upper = lower, upper
@@ -139,7 +165,10 @@ class OrderbookChart:
             # $1 ticks (or bucket_size) aligned to centers
             start_tick = math.floor(lower / bucket_size)
             end_tick = math.floor((upper - 1e-9) / bucket_size)
-            ticks = [t * bucket_size + (bucket_size / 2.0) for t in range(start_tick, end_tick + 1)]
+            ticks = [
+                t * bucket_size + (bucket_size / 2.0)
+                for t in range(start_tick, end_tick + 1)
+            ]
             self.figure.yaxis.ticker = FixedTicker(ticks=ticks)
 
         # X range autoscale to content (symmetric padding)
@@ -150,11 +179,11 @@ class OrderbookChart:
 
 
 def _bin_orderbook_to_window(
-        bids: Iterable[Tuple[float, float]],
-        asks: Iterable[Tuple[float, float]],
-        lower: float,
-        upper: float,
-        bucket_size: float = 1.0,
+    bids: Iterable[Tuple[float, float]],
+    asks: Iterable[Tuple[float, float]],
+    lower: float,
+    upper: float,
+    bucket_size: float = 1.0,
 ):
     """
     Bin bids/asks into identical price buckets in [lower, upper).

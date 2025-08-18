@@ -18,7 +18,7 @@ class Bars:
         self.data_fetcher = data_fetcher
 
     def _get_trades_data(self):
-        #TODO: this should be somehow modified to be more flexible
+        # TODO: this should be somehow modified to be more flexible
         return self.data_fetcher.fetch_recent_trades(limit=1000)
 
     def _get_klines_data(self):

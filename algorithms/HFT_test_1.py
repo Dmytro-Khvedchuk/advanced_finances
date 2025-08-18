@@ -1,6 +1,4 @@
-
-
-def HFT_signal_generator(data, is_in_trade = False, last_price = 0, last_position = ""):
+def HFT_signal_generator(data, is_in_trade=False, last_price=0, last_position=""):
     bids = data["bids"]
     asks = data["asks"]
 
@@ -37,4 +35,3 @@ def HFT_signal_generator(data, is_in_trade = False, last_price = 0, last_positio
     print("Best signal:", signal)
 
     return best_price, signal
-
