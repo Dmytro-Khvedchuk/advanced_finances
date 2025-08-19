@@ -14,5 +14,7 @@ class ParquetManager:
     def append(self, df: pl.DataFrame):
         existing = self.read()
         combined = pl.concat([existing, df])
+        combined = combined.unique(subset=["id"])
+        combined = combined.sort("id")
         combined.write_parquet(self.file_path)
         return combined
