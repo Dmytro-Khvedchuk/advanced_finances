@@ -1,7 +1,26 @@
 from logging import Formatter, INFO, getLogger, StreamHandler
 from colorama import init, Fore, Style
+from time import time
+from functools import wraps
 
 init(autoreset=True)
+
+
+def log_execution(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        self.logger.info(
+            f"Start executing {func.__name__} with args={args}, kwargs={kwargs}"
+        )
+        start_time = time()
+        result = func(self, *args, **kwargs)
+        end_time = time()
+        self.logger.info(
+            f"Ending {func.__name__} in {end_time - start_time:.4f} seconds"
+        )
+        return result
+
+    return wrapper
 
 
 class ColoredFormatter(Formatter):
