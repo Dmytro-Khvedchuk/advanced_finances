@@ -1,96 +1,89 @@
 import polars as pl
+from typing import Any
+import numpy as np
+from tqdm import tqdm
 
 
 def build_dollar_imbalance_bars(
-    data,
-    *,
-    alpha: float = 1.0,
-    ema_span: int = 50,
-    warmup_ticks: int = 200,
-    drop_last_incomplete: bool = True,
-) -> pl.DataFrame:
+    data, *, alpha: float = 1.0, ema_span: int = 50, warmup_ticks: int = 200
+) -> tuple[pl.DataFrame | Any, pl.DataFrame]:
     """
-    Build Dollar Imbalance Bars (DIBs) as described by López de Prado (2018).
-
-    Parameters
-    ----------
-    data : list[dict] or pl.DataFrame
-        Trades with columns: price, qty, time, id, isBuyerMaker
-    alpha : float
-        Sensitivity multiplier for threshold (default=1.0).
-    ema_span : int
-        Span for EMA expectation of imbalance.
-    warmup_ticks : int
-        Number of ticks to collect before activating imbalance rule.
-    drop_last_incomplete : bool
-        Whether to drop last unfinished bar.
+    Build dollar imbalance bars from raw data
+    :param data: raw fetched data from binance, or directly a polars dataframe
+    :param alpha: Scaling factor in the stopping rule threshold.
+    :param ema_span: Span for EMA updates of expected ticks per bar and expected imbalance.
+        (EMA alpha is computed as 2/(span+1)).
+    :param warmup_ticks: Use the first `warmup_ticks` trades to seed initial expectations.
+        If not enough ticks exist, the function degrades gracefully.
+    :return: dollar imbalance bars, unfinished part
     """
 
-    df = (
-        pl.DataFrame(data)
-        .select(
-            pl.col("price").cast(pl.Float64),
-            pl.col("qty").cast(pl.Float64),
-            pl.col("time").cast(pl.Int64),
-            pl.col("id").cast(pl.Int64),
-            pl.col("isBuyerMaker").cast(pl.Boolean),
-        )
-        .sort("time")
-    )
+    if not isinstance(data, pl.DataFrame):
+        df = pl.DataFrame(data)
+    else:
+        df = data
+
+    df = df.select(
+        pl.col("price").cast(pl.Float64),
+        pl.col("qty").cast(pl.Float64),
+        pl.col("time").cast(pl.Int64),
+        pl.col("id").cast(pl.Int64),
+        pl.col("isBuyerMaker").cast(pl.Boolean),
+    ).sort("time")
 
     # buyer_taker = True if buyer initiated trade
     df = df.with_columns((~pl.col("isBuyerMaker")).alias("buyer_taker"))
 
+    # convert to numpy for speed
+    prices = df["price"].to_numpy()
+    qtys = df["qty"].to_numpy()
+    buyer_taker = df["buyer_taker"].to_numpy()
+    ids = df["id"].to_numpy()
+    times = df["time"].to_numpy()
+
+    # signed dollar flow
+    signs = np.where(buyer_taker, 1.0, -1.0)
+    dollar_flows = signs * prices * qtys
+
+    # EMA params
+    ema_alpha = 2 / (ema_span + 1)
+    ema = np.mean(np.abs(dollar_flows[:warmup_ticks]))  # initial EMA
+
     bars = []
-    signed_dollar_sum = 0.0
-    bar_ticks = []
     bar_id = 0
+    signed_dollar_sum = 0.0
+    bar_start_idx = 0
 
-    # initialize EMA with first warmup_ticks
-    signed_dollar_flows = []
-    for i, row in enumerate(df.iter_rows(named=True)):
-        sign = 1 if row["buyer_taker"] else -1
-        dollar_flow = sign * row["price"] * row["qty"]
-        signed_dollar_flows.append(abs(dollar_flow))
+    for i in tqdm(range(len(dollar_flows)), desc="Processing rows"):
+        signed_dollar_sum += dollar_flows[i]
 
-        bar_ticks.append(row)
-        signed_dollar_sum += dollar_flow
+        # update EMA recursively after warmup
+        if i >= warmup_ticks:
+            ema = ema_alpha * abs(dollar_flows[i]) + (1 - ema_alpha) * ema
+            threshold = alpha * ema
 
-        if i < warmup_ticks:
-            continue
+            if abs(signed_dollar_sum) >= threshold:
+                # slice the ticks for this bar
+                sl = slice(bar_start_idx, i + 1)
+                bar_df = pl.DataFrame(
+                    {
+                        "time": times[sl],
+                        "price": prices[sl],
+                        "qty": qtys[sl],
+                        "id": ids[sl],
+                    }
+                ).with_columns(pl.lit(bar_id).alias("bar_id"))
 
-        # compute EMA expectation of |dollar_flow|
-        if len(signed_dollar_flows) > ema_span:
-            weights = [
-                (1 - 2 / (ema_span + 1)) ** k for k in range(len(signed_dollar_flows))
-            ]
-            denom = sum(weights)
-            ema = (
-                sum(v * w for v, w in zip(reversed(signed_dollar_flows), weights))
-                / denom
-            )
-        else:
-            ema = sum(signed_dollar_flows) / len(signed_dollar_flows)
+                bars.append(bar_df)
 
-        threshold = alpha * ema
+                bar_id += 1
+                bar_start_idx = i + 1
+                signed_dollar_sum = 0.0
 
-        # check imbalance condition
-        if abs(signed_dollar_sum) >= threshold:
-            bar_df = pl.DataFrame(bar_ticks)
-            bars.append(bar_df.with_columns(pl.lit(bar_id).alias("bar_id")))
-            bar_id += 1
+    if not bars:
+        return pl.DataFrame(), pl.DataFrame()
 
-            # reset bar state
-            signed_dollar_sum = 0.0
-            bar_ticks = []
-
-    if not bar_ticks or drop_last_incomplete:
-        final = pl.concat(bars)
-    else:
-        final = pl.concat(
-            bars
-            + [pl.DataFrame(bar_ticks).with_columns(pl.lit(bar_id).alias("bar_id"))]
-        )
+    final = pl.concat(bars)
 
     # aggregate bars like OHLCV
     result = (
@@ -113,4 +106,6 @@ def build_dollar_imbalance_bars(
         .sort("bar_id")
     )
 
-    return result
+    unfinished_part = pl.DataFrame()
+
+    return result, unfinished_part

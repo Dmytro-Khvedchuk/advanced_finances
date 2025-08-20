@@ -1,118 +1,116 @@
 import polars as pl
+from typing import Any
+from tqdm import tqdm
+import numpy as np
 
 
 def build_tick_run_bars(
-    data,
-    *,
-    alpha: float = 1.0,
-    ema_span: int = 50,
-    warmup_ticks: int = 200,
-    drop_last_incomplete: bool = True,
-) -> pl.DataFrame:
+    data, *, alpha: float = 1.0, ema_span: int = 50, warmup_ticks: int = 200
+) -> tuple[pl.DataFrame | Any, pl.DataFrame]:
     """
-    Build Tick Run Bars (TRBs) as described by López de Prado (2018).
-
-    Parameters
-    ----------
-    data : list[dict] or pl.DataFrame
-        Trades with columns: price, qty, time, id, isBuyerMaker
-    alpha : float
-        Sensitivity multiplier for threshold.
-    ema_span : int
-        Span for EMA of expected run length.
-    warmup_ticks : int
-        Number of ticks to collect before activating run rule.
-    drop_last_incomplete : bool
-        Whether to drop last unfinished bar.
+    Build tick run bars from raw data
+    :param data: raw fetched data from binance, or directly a polars dataframe
+    :param alpha: Scaling factor in the stopping rule threshold.
+    :param ema_span: Span for EMA updates of expected ticks per bar and expected imbalance.
+        (EMA alpha is computed as 2/(span+1)).
+    :param warmup_ticks: Use the first `warmup_ticks` trades to seed initial expectations.
+        If not enough ticks exist, the function degrades gracefully.
+    :return: tick run bars, unfinished part
     """
 
-    df = (
-        pl.DataFrame(data)
-        .select(
+    if not isinstance(data, pl.DataFrame):
+        df = pl.DataFrame(data)
+    else:
+        df = data
+
+    df = df.select(
+        [
             pl.col("price").cast(pl.Float64),
             pl.col("qty").cast(pl.Float64),
             pl.col("time").cast(pl.Int64),
             pl.col("id").cast(pl.Int64),
             pl.col("isBuyerMaker").cast(pl.Boolean),
-        )
-        .sort("time")
-    )
+        ]
+    ).sort("time")
 
     # buyer_taker = True if buyer initiated trade
     df = df.with_columns((~pl.col("isBuyerMaker")).alias("buyer_taker"))
 
-    bars = []
-    bar_ticks = []
-    bar_id = 0
+    # Convert to NumPy for vectorized processing
+    buyer_taker = df["buyer_taker"].to_numpy()
+    n = len(buyer_taker)
 
-    run_length = 0
-    prev_sign = None
-    run_history = []
+    signs = np.where(buyer_taker, 1, -1)
 
-    for i, row in enumerate(df.iter_rows(named=True)):
-        sign = 1 if row["buyer_taker"] else -1
-        bar_ticks.append(row)
-
-        # update run length
-        if prev_sign is None or sign == prev_sign:
-            run_length += 1
+    # Run-length encoding
+    run_lengths = np.zeros(n, dtype=int)
+    prev_sign = 0
+    for i in tqdm(range(n), desc="Calculating run lengths"):
+        if i == 0 or signs[i] == prev_sign:
+            run_lengths[i] = run_lengths[i - 1] + 1 if i > 0 else 1
         else:
-            run_history.append(run_length)
-            run_length = 1
-        prev_sign = sign
+            run_lengths[i] = 1
+        prev_sign = signs[i]
 
+    # EMA of run lengths
+    ema = np.zeros(n, dtype=float)
+    alpha_ema = 2 / (ema_span + 1)
+    for i in tqdm(range(n), desc="Calculating EMA"):
         if i < warmup_ticks:
-            continue
-
-        # compute EMA of past run lengths
-        if len(run_history) > ema_span:
-            weights = [(1 - 2 / (ema_span + 1)) ** k for k in range(len(run_history))]
-            denom = sum(weights)
-            ema = sum(v * w for v, w in zip(reversed(run_history), weights)) / denom
+            ema[i] = np.mean(run_lengths[: i + 1])
         else:
-            ema = sum(run_history) / len(run_history) if run_history else 1.0
+            ema[i] = alpha_ema * run_lengths[i] + (1 - alpha_ema) * ema[i - 1]
 
-        threshold = alpha * ema
+    threshold = alpha * ema
 
-        # close bar if run length >= threshold
-        if run_length >= threshold:
-            bar_df = pl.DataFrame(bar_ticks)
-            bars.append(bar_df.with_columns(pl.lit(bar_id).alias("bar_id")))
-            bar_id += 1
+    # Identify bar breaks
+    bar_breaks = run_lengths >= threshold
+    bar_indices = np.where(bar_breaks)[0]
 
-            # reset state
-            bar_ticks = []
-            run_length = 0
-            prev_sign = None
-            run_history = []
+    if len(bar_indices) == 0:
+        return pl.DataFrame(), pl.DataFrame()
 
-    if not bar_ticks or drop_last_incomplete:
-        final = pl.concat(bars)
+    bars_list = []
+    start_idx = 0
+    bar_id = 0
+    for end_idx in tqdm(bar_indices, desc="Building bars"):
+        bar_df = df[start_idx : end_idx + 1].with_columns(
+            pl.lit(bar_id).alias("bar_id")
+        )
+        bars_list.append(bar_df)
+        start_idx = end_idx + 1
+        bar_id += 1
+
+    if bars_list:
+        final = pl.concat(bars_list)
     else:
-        final = pl.concat(
-            bars
-            + [pl.DataFrame(bar_ticks).with_columns(pl.lit(bar_id).alias("bar_id"))]
-        )
+        final = pl.DataFrame()
 
-    # aggregate bars to OHLCV
-    result = (
-        final.group_by("bar_id", maintain_order=True)
-        .agg(
-            [
-                pl.col("time").first().alias("start_time"),
-                pl.col("time").last().alias("end_time"),
-                pl.col("price").first().alias("open"),
-                pl.col("price").max().alias("high"),
-                pl.col("price").min().alias("low"),
-                pl.col("price").last().alias("close"),
-                pl.len().alias("n_ticks"),
-                pl.col("qty").sum().alias("base_volume"),
-                (pl.col("price") * pl.col("qty")).sum().alias("quote_volume"),
-                pl.col("id").first().alias("first_trade_id"),
-                pl.col("id").last().alias("last_trade_id"),
-            ]
+    # Aggregate OHLCV per bar
+    if not final.is_empty():
+        bars = (
+            final.group_by("bar_id", maintain_order=True)
+            .agg(
+                [
+                    pl.col("time").first().alias("start_time"),
+                    pl.col("time").last().alias("end_time"),
+                    pl.col("price").first().alias("open"),
+                    pl.col("price").max().alias("high"),
+                    pl.col("price").min().alias("low"),
+                    pl.col("price").last().alias("close"),
+                    pl.count().alias("n_ticks"),
+                    pl.col("qty").sum().alias("base_volume"),
+                    (pl.col("price") * pl.col("qty")).sum().alias("quote_volume"),
+                    pl.col("id").first().alias("first_trade_id"),
+                    pl.col("id").last().alias("last_trade_id"),
+                ]
+            )
+            .sort("bar_id")
         )
-        .sort("bar_id")
-    )
+    else:
+        bars = pl.DataFrame()
 
-    return result
+    # Any leftover ticks
+    unfinished_part = df[start_idx:] if start_idx < n else pl.DataFrame()
+
+    return bars, unfinished_part
