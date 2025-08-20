@@ -6,7 +6,7 @@ from utils.global_variables.SCHEMAS import KLINES_SCHEMA, TRADES_SCHEMA
 
 
 class ParquetManager:
-    def __init__(self, file_path, interval : str = "1h", log_level: int = 10):
+    def __init__(self, file_path, interval: str = "1h", log_level: int = 10):
         self.file_path = file_path
         self.logger = LoggerWrapper(name="Parquet Manager Module", level=log_level)
         self.trades_path = f"{file_path}_trades.parquet"

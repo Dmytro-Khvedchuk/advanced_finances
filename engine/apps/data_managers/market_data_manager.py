@@ -95,16 +95,18 @@ class MarketDataManager:
             start_date = self._parse_date_for_klines(start_date)
         if end_date is not None:
             end_date = self._parse_date_for_klines(end_date)
-        
 
         df = self.parquet_storage.read_klines()
 
         if df.is_empty():
             return df
-        
-        data = pl.DataFrame(self.data_fetcher.fetch_historical_klines(
-            start_str=start_date, end_str=end_date, interval=interval
-        ), schema=KLINES_SCHEMA)
+
+        data = pl.DataFrame(
+            self.data_fetcher.fetch_historical_klines(
+                start_str=start_date, end_str=end_date, interval=interval
+            ),
+            schema=KLINES_SCHEMA,
+        )
 
         self.parquet_storage.append_klines(data)
 
