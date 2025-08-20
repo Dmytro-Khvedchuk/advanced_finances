@@ -13,21 +13,35 @@ from utils.global_variables.GLOBAL_VARIABLES import (
 from tqdm import tqdm
 from requests.exceptions import ReadTimeout
 from time import sleep
+from utils.logger.logger import LoggerWrapper
+from utils.logger.logger import log_execution
 
 
 class MarketDataManager:
-    def __init__(self, client: Client, symbol: str = "BTCUSDT"):
-        self.parquet_storage = ParquetManager(DATA_PATH / f"{symbol}.parquet")
+    def __init__(self, client: Client, symbol: str = "BTCUSDT", log_level: int = 10):
+        self.parquet_storage = ParquetManager(DATA_PATH / f"{symbol}.parquet", log_level=log_level)
         self.data_fetcher = FetchData(client=client, symbol=symbol)
+        self.logger = LoggerWrapper(name="Market Data Manager Module", level=log_level)
 
+
+    @log_execution
     def get_trades(self, *, start_id: int = None, end_id: int = None) -> pl.DataFrame:
-        df = self.parquet_storage.read()
+        df = self.parquet_storage.read_trades()
 
         if df.is_empty():
             return df
 
         first_trade_id = df["id"].min()
-        last_binance_trade_id = self.data_fetcher.fetch_recent_trades(limit=1)[0]["id"]
+
+        try:
+            last_binance_trade_id = self.data_fetcher.fetch_recent_trades(limit=1)[0]["id"]
+        except ReadTimeout:
+            self.logger.warning("Failed to fetch recent trades: ReadTimeout. Retrying...")
+            sleep(RETRY_DELAY)
+            last_binance_trade_id = self.data_fetcher.fetch_recent_trades(limit=1)[0]["id"]
+        except Exception as e:
+            self.logger.error(f"Failed to fetch recent trades: {e}")
+            return df
 
         self._validate_range(start_id, end_id, first_trade_id, last_binance_trade_id)
 
@@ -35,21 +49,21 @@ class MarketDataManager:
             lacking_ids = self._find_lacking_ids(df, start_id, last_binance_trade_id)
             fetch_ids_dictionary = self._get_consecutive_trades(lacking_ids)
             self._fetch_and_write(fetch_ids_dictionary)
-            final_df = self.parquet_storage.read()
+            final_df = self.parquet_storage.read_trades()
             return final_df.filter(pl.col("id") >= start_id)
 
         elif start_id is None and end_id is not None:
             lacking_ids = self._find_lacking_ids(df, first_trade_id, end_id)
             fetch_ids_dictionary = self._get_consecutive_trades(lacking_ids)
             self._fetch_and_write(fetch_ids_dictionary)
-            final_df = self.parquet_storage.read()
+            final_df = self.parquet_storage.read_trades()
             return final_df.filter(pl.col("id") <= end_id)
 
         elif start_id is not None and end_id is not None:
             lacking_ids = self._find_lacking_ids(df, start_id, end_id)
             fetch_ids_dictionary = self._get_consecutive_trades(lacking_ids)
             self._fetch_and_write(fetch_ids_dictionary)
-            final_df = self.parquet_storage.read()
+            final_df = self.parquet_storage.read_trades()
             return final_df.filter(
                 (pl.col("id") >= start_id) & (pl.col("id") <= end_id)
             )
@@ -60,7 +74,7 @@ class MarketDataManager:
             )
             fetch_ids_dictionary = self._get_consecutive_trades(lacking_ids)
             self._fetch_and_write(fetch_ids_dictionary)
-            return self.parquet_storage.read()
+            return self.parquet_storage.read_trades()
 
     def _fetch_and_write(self, fetch_ids_dictionary: dict):
         """Fetch trades from API and append them to parquet storage with retry logic."""
@@ -73,6 +87,35 @@ class MarketDataManager:
             ):
                 self._fetch_with_retry(range_id, limit)
 
+    def _fetch_with_retry(self, from_id: int, limit: int):
+        """Fetch a batch of trades with retry on ReadTimeout."""
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                data = pl.DataFrame(
+                    self.data_fetcher.fetch_historical_trades(
+                        from_id=from_id, limit=limit
+                    )
+                )
+                self.parquet_storage.append_trades(data)
+                break
+            except ReadTimeout:
+                if attempt < MAX_RETRIES:
+                    self.logger.warning(f"ReadTimeout, retrying {attempt}/{MAX_RETRIES} after {RETRY_DELAY}s...")
+                    sleep(RETRY_DELAY)
+                else:
+                    self.logger.error(f"Failed to fetch trades from {from_id} after {MAX_RETRIES} attempts.")
+                    raise
+
+    @log_execution
+    def get_klines(self, *, start_date: str, end_date: str, interval: str = "5m"):
+        pass
+
+    @log_execution
+    def get_order_book(self):
+        pass
+
+    # ---=== HELPER METHODS ===---
+
     @staticmethod
     def _calculate_fetch_points(amount: int, from_id: int):
         """Calculate fetch start points and limits based on Binance API constraints."""
@@ -84,38 +127,6 @@ class MarketDataManager:
             limits = [amount]
 
         return fetch_points, limits
-
-    def _fetch_with_retry(self, from_id: int, limit: int):
-        """Fetch a batch of trades with retry on ReadTimeout."""
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                data = pl.DataFrame(
-                    self.data_fetcher.fetch_historical_trades(
-                        from_id=from_id, limit=limit
-                    )
-                )
-                self.parquet_storage.append(data)
-                break
-            except ReadTimeout:
-                if attempt < MAX_RETRIES:
-                    # should be logged
-                    print(
-                        f"ReadTimeout, retrying {attempt}/{MAX_RETRIES} after {RETRY_DELAY}s..."
-                    )
-                    sleep(RETRY_DELAY)
-                else:
-                    print(
-                        f"Failed to fetch trades from {from_id} after {MAX_RETRIES} attempts."
-                    )
-                    raise
-
-    def get_klines(self):
-        pass
-
-    def get_order_book(self):
-        pass
-
-    # ---=== HELPER METHODS ===---
 
     @staticmethod
     def _find_lacking_ids(df, start, end):
@@ -141,17 +152,11 @@ class MarketDataManager:
     def _get_consecutive_trades(arr: np.ndarray) -> dict[Any, Any]:
         breaks = np.where(np.diff(arr) != 1)[0]
 
-        # Indices of run starts
-        starts_idx = np.insert(breaks + 1, 0, 0)  # add 0 for the first element
-        # Indices of run ends
+        starts_idx = np.insert(breaks + 1, 0, 0)
         ends_idx = np.append(breaks, len(arr) - 1)
 
-        # Run lengths
         lengths = ends_idx - starts_idx + 1
-
-        # Starting values of each run
         starts = arr[starts_idx]
 
-        # Create dictionary
         result = dict(zip(starts, lengths))
         return result

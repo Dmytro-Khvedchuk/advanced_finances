@@ -14,7 +14,7 @@ from utils.logger.logger import log_execution
 
 class Bars:
     def __init__(self, log_level: int):
-        self.logger = LoggerWrapper(name="Bars creation module", level=log_level)
+        self.logger = LoggerWrapper(name="Bars Creation Module", level=log_level)
         pass
 
     @log_execution
