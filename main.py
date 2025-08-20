@@ -6,6 +6,7 @@ from engine.core.bars.bars import Bars
 from utils.charts.chart import Chart
 from utils.global_variables.GLOBAL_VARIABLES import LEVEL_MAP, SYMBOL
 
+
 def pick_log_level():
     while True:
         print(LEVEL_MAP)

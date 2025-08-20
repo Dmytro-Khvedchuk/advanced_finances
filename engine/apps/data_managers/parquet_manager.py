@@ -13,7 +13,9 @@ class ParquetManager:
     def read_trades(self) -> pl.DataFrame:
         if os.path.exists(self.file_path):
             return pl.read_parquet(self.file_path)
-        self.logger.warning(f"File {self.file_path} does not exist. Returning empty DataFrame.")
+        self.logger.warning(
+            f"File {self.file_path} does not exist. Returning empty DataFrame."
+        )
         return pl.DataFrame([])
 
     @log_execution
@@ -29,6 +31,7 @@ class ParquetManager:
     def read_klines(self) -> pl.DataFrame:
         if os.path.exists(self.file_path):
             return pl.read_parquet(self.file_path)
-        self.logger.warning(f"File {self.file_path} does not exist. Returning empty DataFrame.")
+        self.logger.warning(
+            f"File {self.file_path} does not exist. Returning empty DataFrame."
+        )
         return pl.DataFrame([])
-

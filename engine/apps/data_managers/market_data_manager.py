@@ -19,10 +19,11 @@ from utils.logger.logger import log_execution
 
 class MarketDataManager:
     def __init__(self, client: Client, symbol: str = "BTCUSDT", log_level: int = 10):
-        self.parquet_storage = ParquetManager(DATA_PATH / f"{symbol}.parquet", log_level=log_level)
+        self.parquet_storage = ParquetManager(
+            DATA_PATH / f"{symbol}.parquet", log_level=log_level
+        )
         self.data_fetcher = FetchData(client=client, symbol=symbol)
         self.logger = LoggerWrapper(name="Market Data Manager Module", level=log_level)
-
 
     @log_execution
     def get_trades(self, *, start_id: int = None, end_id: int = None) -> pl.DataFrame:
@@ -34,11 +35,17 @@ class MarketDataManager:
         first_trade_id = df["id"].min()
 
         try:
-            last_binance_trade_id = self.data_fetcher.fetch_recent_trades(limit=1)[0]["id"]
+            last_binance_trade_id = self.data_fetcher.fetch_recent_trades(limit=1)[0][
+                "id"
+            ]
         except ReadTimeout:
-            self.logger.warning("Failed to fetch recent trades: ReadTimeout. Retrying...")
+            self.logger.warning(
+                "Failed to fetch recent trades: ReadTimeout. Retrying..."
+            )
             sleep(RETRY_DELAY)
-            last_binance_trade_id = self.data_fetcher.fetch_recent_trades(limit=1)[0]["id"]
+            last_binance_trade_id = self.data_fetcher.fetch_recent_trades(limit=1)[0][
+                "id"
+            ]
         except Exception as e:
             self.logger.error(f"Failed to fetch recent trades: {e}")
             return df
@@ -100,10 +107,14 @@ class MarketDataManager:
                 break
             except ReadTimeout:
                 if attempt < MAX_RETRIES:
-                    self.logger.warning(f"ReadTimeout, retrying {attempt}/{MAX_RETRIES} after {RETRY_DELAY}s...")
+                    self.logger.warning(
+                        f"ReadTimeout, retrying {attempt}/{MAX_RETRIES} after {RETRY_DELAY}s..."
+                    )
                     sleep(RETRY_DELAY)
                 else:
-                    self.logger.error(f"Failed to fetch trades from {from_id} after {MAX_RETRIES} attempts.")
+                    self.logger.error(
+                        f"Failed to fetch trades from {from_id} after {MAX_RETRIES} attempts."
+                    )
                     raise
 
     @log_execution
