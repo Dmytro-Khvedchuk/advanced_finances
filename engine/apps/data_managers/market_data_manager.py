@@ -10,18 +10,22 @@ from utils.global_variables.GLOBAL_VARIABLES import (
     MAX_RETRIES,
     RETRY_DELAY,
 )
+from utils.global_variables.SCHEMAS import KLINES_SCHEMA
 from tqdm import tqdm
 from requests.exceptions import ReadTimeout
 from time import sleep
 from utils.logger.logger import LoggerWrapper
 from utils.logger.logger import log_execution
+from datetime import datetime
+from dateutil.parser import parse
 
 
 class MarketDataManager:
     def __init__(self, client: Client, symbol: str = "BTCUSDT", log_level: int = 10):
         self.parquet_storage = ParquetManager(
-            DATA_PATH / f"{symbol}.parquet", log_level=log_level
+            DATA_PATH / f"{symbol}", log_level=log_level
         )
+        self.symbol = symbol
         self.data_fetcher = FetchData(client=client, symbol=symbol)
         self.logger = LoggerWrapper(name="Market Data Manager Module", level=log_level)
 
@@ -83,6 +87,43 @@ class MarketDataManager:
             self._fetch_and_write(fetch_ids_dictionary)
             return self.parquet_storage.read_trades()
 
+    @log_execution
+    def get_klines(
+        self, *, start_date: str = None, end_date: str = None, interval: str = "1m"
+    ):
+        if start_date is not None:
+            start_date = self._parse_date_for_klines(start_date)
+        if end_date is not None:
+            end_date = self._parse_date_for_klines(end_date)
+        
+
+        df = self.parquet_storage.read_klines()
+
+        if df.is_empty():
+            return df
+        
+        data = pl.DataFrame(self.data_fetcher.fetch_historical_klines(
+            start_str=start_date, end_str=end_date, interval=interval
+        ), schema=KLINES_SCHEMA)
+
+        self.parquet_storage.append_klines(data)
+
+        return self.parquet_storage.read_klines()
+
+    @log_execution
+    def get_order_book(self):
+        pass
+
+    # ---=== HELPER METHODS ===---
+    def _parse_date_for_klines(self, date: str = "22 Oct 2024"):
+        try:
+            parsed_date = parse(date)
+            timestamp_ms = int(parsed_date.timestamp() * 1000)
+            return timestamp_ms
+        except Exception as fallback_error:
+            self.logger.error(f"Failed to parse date '{date}': {fallback_error}. ")
+            raise ValueError(f"Failed to parse date '{date}': {fallback_error}. ")
+
     def _fetch_and_write(self, fetch_ids_dictionary: dict):
         """Fetch trades from API and append them to parquet storage with retry logic."""
         for from_id, amount in fetch_ids_dictionary.items():
@@ -117,16 +158,7 @@ class MarketDataManager:
                     )
                     raise
 
-    @log_execution
-    def get_klines(self, *, start_date: str, end_date: str, interval: str = "5m"):
-        pass
-
-    @log_execution
-    def get_order_book(self):
-        pass
-
-    # ---=== HELPER METHODS ===---
-
+    # ---=== STATIC METHODS ===---
     @staticmethod
     def _calculate_fetch_points(amount: int, from_id: int):
         """Calculate fetch start points and limits based on Binance API constraints."""
