@@ -111,11 +111,16 @@ class MarketDataManager:
                 start_str=start_date, end_str=end_date, interval=interval
             ),
             schema=KLINES_SCHEMA,
+            orient="row"
         )
 
         self.parquet_storage.append_klines(data)
 
-        return self.parquet_storage.read_klines()
+        data = self.parquet_storage.read_klines()
+
+        return data.filter(
+            (pl.col("open_time") >= start_date) & (pl.col("open_time") <= end_date)
+        )
 
     @log_execution
     def get_order_book(self):
