@@ -1,14 +1,16 @@
 import polars as pl
-from binance.client import Client
-from API.data_fetcher import FetchData
-from engine.apps.data_managers.parquet_manager import ParquetManager
-from utils.global_variables.GLOBAL_VARIABLES import DATA_PATH
 import numpy as np
+from binance.client import Client as BinanceClient
+from clickhouse_driver import Client as DBClient
+from API.data_fetcher import FetchData
 from typing import Any
+from engine.apps.data_managers.clickhouse.data_manager import ClickHouseDataManager
 from utils.global_variables.GLOBAL_VARIABLES import (
     BINANCE_TRADES_LIMIT,
     MAX_RETRIES,
     RETRY_DELAY,
+    SYMBOL,
+    TIMEFRAME
 )
 from utils.global_variables.SCHEMAS import KLINES_SCHEMA
 from tqdm import tqdm
@@ -16,18 +18,25 @@ from requests.exceptions import ReadTimeout
 from time import sleep
 from utils.logger.logger import LoggerWrapper
 from utils.logger.logger import log_execution
-from datetime import datetime
 from dateutil.parser import parse
 
 
 class MarketDataManager:
-    def __init__(self, client: Client, symbol: str = "BTCUSDT", log_level: int = 10):
-        self.parquet_storage = ParquetManager(
-            DATA_PATH / f"{symbol}", log_level=log_level
-        )
-        self.symbol = symbol
-        self.data_fetcher = FetchData(client=client, symbol=symbol)
+    def __init__(
+        self,
+        binance_client: BinanceClient,
+        database_client: DBClient,
+        symbol: str = SYMBOL,
+        log_level: int = 10,
+    ):
         self.logger = LoggerWrapper(name="Market Data Manager Module", level=log_level)
+        self.symbol = symbol
+        self.click_house_data_manager = ClickHouseDataManager(
+            database_client=database_client, log_level=log_level
+        )
+        self.data_fetcher = FetchData(
+            client=binance_client, symbol=symbol, log_level=log_level
+        )
 
     @log_execution
     def get_trades(self, *, start_id: int = None, end_id: int = None) -> pl.DataFrame:
@@ -89,7 +98,7 @@ class MarketDataManager:
 
     @log_execution
     def get_klines(
-        self, *, start_date: str = None, end_date: str = None, interval: str = "1m"
+        self, *, start_date: str = None, end_date: str = None, timeframe: str = TIMEFRAME
     ):
         if start_date is None:
             self.logger.error("Please frovide starting date of klines")
@@ -108,7 +117,7 @@ class MarketDataManager:
 
         data = pl.DataFrame(
             self.data_fetcher.fetch_historical_klines(
-                start_str=start_date, end_str=end_date, interval=interval
+                start_str=start_date, end_str=end_date, interval=timeframe
             ),
             schema=KLINES_SCHEMA,
             orient="row",
