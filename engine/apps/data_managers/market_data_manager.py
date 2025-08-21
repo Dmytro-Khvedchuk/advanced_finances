@@ -90,11 +90,16 @@ class MarketDataManager:
     @log_execution
     def get_klines(
         self, *, start_date: str = None, end_date: str = None, interval: str = "1m"
-    ):
-        if start_date is not None:
-            start_date = self._parse_date_for_klines(start_date)
-        if end_date is not None:
-            end_date = self._parse_date_for_klines(end_date)
+    ):  
+        if start_date is None:
+            self.logger.error("Please frovide starting date of klines")
+            raise ValueError("starting date must be provided and cannot be empty.")
+        if end_date is None:
+            self.logger.error("Please frovide ending date of klines")
+            raise ValueError("ending date must be provided and cannot be empty.")
+        
+        start_date = self._parse_date_for_klines(start_date)
+        end_date = self._parse_date_for_klines(end_date)
 
         df = self.parquet_storage.read_klines()
 
