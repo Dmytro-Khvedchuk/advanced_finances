@@ -24,3 +24,4 @@ LEVEL_MAP = {
 
 # === ENGINE ===
 SYMBOL = cfg["engine"]["symbol"]
+TIMEFRAME = cfg["engine"]["timeframe"]
