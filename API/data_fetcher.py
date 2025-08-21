@@ -36,3 +36,13 @@ class FetchData:
         return self.client.get_klines(
             symbol=self.symbol, interval=interval, limit=limit
         )
+
+    def fetch_historical_klines(
+        self,
+        interval: str = Client.KLINE_INTERVAL_1MINUTE,
+        start_str: str = None,
+        end_str: str = None,
+    ):
+        return self.client.get_klines(
+            symbol=self.symbol, interval=interval, startTime=start_str, endTime=end_str
+        )
