@@ -1,5 +1,6 @@
 import yaml
 from pathlib import Path
+from datetime import timedelta, datetime
 
 with open("configs/config.yaml") as f:
     cfg = yaml.safe_load(f)
@@ -23,5 +24,17 @@ LEVEL_MAP = {
 }
 
 # === ENGINE ===
+BINANCE_EARLIEST_DATE = str(datetime(year=2017, month=8, day=17).date())
+BINANCE_LATEST_DATE = str(datetime.now().date())
 SYMBOL = cfg["engine"]["symbol"]
 TIMEFRAME = cfg["engine"]["timeframe"]
+
+TIMEFRAME_MAP = {
+    "1m": timedelta(minutes=1),
+    "5m": timedelta(minutes=5),
+    "15m": timedelta(minutes=15),
+    "30m": timedelta(minutes=30),
+    "1h": timedelta(hours=1),
+    "4h": timedelta(hours=4),
+    "1D": timedelta(days=1),
+}
