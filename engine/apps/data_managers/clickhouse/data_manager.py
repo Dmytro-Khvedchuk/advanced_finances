@@ -2,11 +2,17 @@ from clickhouse_driver import Client
 from utils.global_variables.GLOBAL_VARIABLES import TIMEFRAME, SYMBOL
 import polars as pl
 
+from utils.logger.logger import LoggerWrapper, log_execution
+
 
 class ClickHouseDataManager:
-    def __init__(self, client: Client):
+    def __init__(self, client: Client, log_level: int = 10):
         self.client = client
+        self.logger = LoggerWrapper(
+            name="Click House Data Manager Module", level=log_level
+        )
 
+    @log_execution
     def create_klines_table(self, symbol: str = SYMBOL, timeframe: str = TIMEFRAME):
         table_name = f"klines_{symbol}_{timeframe}"
 
@@ -32,8 +38,7 @@ class ClickHouseDataManager:
         """
         )
 
-        return table_name
-
+    @log_execution
     def insert_klines(
         self, df: pl.DataFrame, symbol: str = SYMBOL, timeframe: str = TIMEFRAME
     ):
@@ -41,15 +46,32 @@ class ClickHouseDataManager:
         rows = [tuple(row) for row in df.to_numpy()]
         self.client.execute(f"INSERT INTO {table_name} VALUES", rows)
 
+    @log_execution
     def get_klines(
         self,
         symbol: str = SYMBOL,
         timeframe: str = TIMEFRAME,
         *,
-        start_date: str = None,
-        end_date: str = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        columns: str | None = None,
     ) -> pl.DataFrame:
         table_name = f"klines_{symbol}_{timeframe}"
 
-        data = self.client.execute(f"SELECT * FROM {table_name}")
+        select_cols = ", ".join(columns) if columns else "*"
+
+        conditions = []
+        if start_date:
+            conditions.append(f"open_time >= '{start_date}'")
+        if end_date:
+            conditions.append(f"open_time <= '{end_date}'")
+
+        where_clause = ""
+        if conditions:
+            where_clause = " WHERE " + " AND ".join(conditions)
+
+        query = f"SELECT {select_cols} FROM {table_name}{where_clause}"
+
+        data = self.client.execute(query)
+
         return data
