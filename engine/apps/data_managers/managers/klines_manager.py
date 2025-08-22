@@ -111,7 +111,9 @@ class KlineDataManager:
                 if len(data) == 0:
                     break
 
-                self.click_house_data_manager.klines.insert_klines(df=data, symbol=self.symbol)
+                self.click_house_data_manager.klines.insert_klines(
+                    df=data, symbol=self.symbol
+                )
 
                 start = int(data["open_time"].max()) + interval_ms
 

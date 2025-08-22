@@ -15,4 +15,3 @@ class ClickHouseDataManager:
             name="Click House Data Manager Module", level=log_level
         )
         self.klines = ClickHouseKlinesManager(client=client, log_level=log_level)
-
