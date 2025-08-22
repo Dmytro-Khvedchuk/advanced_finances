@@ -64,10 +64,10 @@ class FetchData:
     ):
         return self._fetch_with_retry(
             self.client.get_klines,
-                symbol=self.symbol,
-                interval=timeframe,
-                startTime=start_str,
-                endTime=end_str,
+            symbol=self.symbol,
+            interval=timeframe,
+            startTime=start_str,
+            endTime=end_str,
         )
 
     @log_execution

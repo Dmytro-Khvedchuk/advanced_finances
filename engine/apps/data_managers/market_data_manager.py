@@ -1,3 +1,4 @@
+# TODO: refactor this code, so the trades, order book and klines will be separate classes, its getting out of hand 😭
 import polars as pl
 import numpy as np
 from binance.client import Client as BinanceClient
@@ -85,6 +86,7 @@ class MarketDataManager:
             self._fetch_and_write_trades(fetch_ids_dictionary)
             return self.parquet_storage.read_trades()
 
+    # TODO: refactor
     @log_execution
     def get_klines(
         self,
