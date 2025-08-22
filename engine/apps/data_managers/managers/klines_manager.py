@@ -19,7 +19,7 @@ from binance.client import Client as BinanceClient
 from API.data_fetcher import FetchData
 
 
-class KlineManager:
+class KlineDataManager:
     def __init__(
         self,
         database_client: DBClient,
@@ -27,7 +27,7 @@ class KlineManager:
         symbol: str = SYMBOL,
         log_level: int = 10,
     ):
-        self.logger = LoggerWrapper(name="Kline Manager Module", level=log_level)
+        self.logger = LoggerWrapper(name="Kline Data Manager Module", level=log_level)
         self.symbol = symbol
         self.click_house_data_manager = ClickHouseDataManager(
             client=database_client, log_level=log_level
@@ -51,7 +51,7 @@ class KlineManager:
             end_date = self._parse_date_for_klines(end_date)
 
         present_time_in_db = pl.DataFrame(
-            self.click_house_data_manager.get_klines(
+            self.click_house_data_manager.klines.get_klines(
                 symbol=self.symbol,
                 timeframe=timeframe,
                 start_date=start_date,
@@ -81,7 +81,7 @@ class KlineManager:
             self._fetch_and_write_klines(fetch_dictionary=elements, timeframe=timeframe)
 
         data = pl.DataFrame(
-            self.click_house_data_manager.get_klines(
+            self.click_house_data_manager.klines.get_klines(
                 symbol=self.symbol,
                 timeframe=timeframe,
                 start_date=start_date,
@@ -111,7 +111,7 @@ class KlineManager:
                 if len(data) == 0:
                     break
 
-                self.click_house_data_manager.insert_klines(df=data, symbol=self.symbol)
+                self.click_house_data_manager.klines.insert_klines(df=data, symbol=self.symbol)
 
                 start = int(data["open_time"].max()) + interval_ms
 
