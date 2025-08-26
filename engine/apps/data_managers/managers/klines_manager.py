@@ -115,7 +115,8 @@ class KlineDataManager:
                     df=data, symbol=self.symbol
                 )
 
-                start = int(data["open_time"].max()) + interval_ms
+                start = int(data["open_time"].max().timestamp() * 1000) + interval_ms
+
 
     # ---=== HELPER METHODS ===---
     def _parse_date_for_klines(self, date: str = "22 Oct 2024"):

@@ -53,17 +53,5 @@ class MarketDataManager:
         pass
 
     @log_execution
-    def get_klines(
-        self,
-        *,
-        start_date: str | None = None,
-        end_date: str | None = None,
-        timeframe: str = TIMEFRAME,
-    ):
-        return self.kline_manager.get_klines(
-            start_date=start_date, end_date=end_date, timeframe=timeframe
-        )
-
-    @log_execution
     def get_order_book(self):
         pass
