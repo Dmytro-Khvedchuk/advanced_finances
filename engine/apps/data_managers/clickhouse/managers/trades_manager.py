@@ -27,7 +27,7 @@ class ClickHouseTradesManager:
             is_buyer_maker UInt8,
             is_best_match UInt8
         )
-        ENGINE = ReplacingMergeTree()
+        ENGINE = MergeTree()
         ORDER BY id
         PRIMARY KEY id
         """
