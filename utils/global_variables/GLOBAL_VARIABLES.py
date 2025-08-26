@@ -26,6 +26,7 @@ LEVEL_MAP = {
 # === ENGINE ===
 BINANCE_EARLIEST_DATE = str(datetime(year=2017, month=8, day=17).date())
 BINANCE_LATEST_DATE = str(datetime.now().date())
+BINANCE_EARLIEST_ID = 0
 SYMBOL = cfg["engine"]["symbol"]
 TIMEFRAME = cfg["engine"]["timeframe"]
 
