@@ -21,17 +21,13 @@ class FetchData:
     @log_execution
     def fetch_order_book(self, limit: int = 100) -> Dict[str, Any]:
         return self._fetch_with_retry(
-            self.client.get_order_book(symbol=self.symbol, limit=limit)
+            self.client.get_order_book, symbol=self.symbol, limit=limit
         )
 
     @log_execution
-    def fetch_recent_trades(self, limit: int = 500) -> List[Dict[str, Any]]:
-        """
-        Recent trades (most-recent-first window). Max limit typically 1000.
-        Does NOT require API key permission beyond public access.
-        """
+    def fetch_recent_trades(self, limit: int = 500):
         return self._fetch_with_retry(
-            self.client.get_recent_trades(symbol=self.symbol, limit=limit)
+            self.client.get_recent_trades, symbol=self.symbol, limit=limit
         )
 
     @log_execution
@@ -44,15 +40,16 @@ class FetchData:
         `from_id` is the tradeId to start from (inclusive).
         """
         return self._fetch_with_retry(
-            self.client.get_historical_trades(
-                symbol=self.symbol, limit=limit, fromId=from_id
-            )
+            self.client.get_historical_trades,
+            symbol=self.symbol,
+            limit=limit,
+            fromId=from_id,
         )
 
     @log_execution
     def fetch_klines(self, timeframe: str = TIMEFRAME, limit: int = 1000):
         return self._fetch_with_retry(
-            self.client.get_klines(symbol=self.symbol, interval=timeframe, limit=limit)
+            self.client.get_klines, symbol=self.symbol, interval=timeframe, limit=limit
         )
 
     @log_execution
