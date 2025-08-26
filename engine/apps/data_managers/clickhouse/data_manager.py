@@ -2,8 +2,9 @@ from clickhouse_driver import Client
 from engine.apps.data_managers.clickhouse.managers.klines_manager import (
     ClickHouseKlinesManager,
 )
-from utils.global_variables.GLOBAL_VARIABLES import TIMEFRAME, SYMBOL
-import polars as pl
+from engine.apps.data_managers.clickhouse.managers.trades_manager import (
+    ClickHouseTradesManager,
+)
 
 from utils.logger.logger import LoggerWrapper
 
@@ -15,3 +16,4 @@ class ClickHouseDataManager:
             name="Click House Data Manager Module", level=log_level
         )
         self.klines = ClickHouseKlinesManager(client=client, log_level=log_level)
+        self.trades = ClickHouseTradesManager(client=client, log_level=log_level)
