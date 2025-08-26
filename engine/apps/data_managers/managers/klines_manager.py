@@ -29,11 +29,11 @@ class KlineDataManager:
     ):
         self.logger = LoggerWrapper(name="Kline Data Manager Module", level=log_level)
         self.symbol = symbol
-        self.click_house_data_manager = ClickHouseDataManager(
-            client=database_client, log_level=log_level
-        )
         self.data_fetcher = FetchData(
             client=binance_client, symbol=symbol, log_level=log_level
+        )
+        self.click_house_data_manager = ClickHouseDataManager(
+            client=database_client, log_level=log_level
         )
 
     # TODO: refactor
@@ -45,6 +45,10 @@ class KlineDataManager:
         end_date: str | None = None,
         timeframe: str = TIMEFRAME,
     ):
+        self.click_house_data_manager.klines.create_klines_table(
+            symbol=self.symbol, timeframe=timeframe
+        )
+
         if start_date:
             start_date = self._parse_date_for_klines(start_date)
         if end_date:
@@ -116,7 +120,6 @@ class KlineDataManager:
                 )
 
                 start = int(data["open_time"].max().timestamp() * 1000) + interval_ms
-
 
     # ---=== HELPER METHODS ===---
     def _parse_date_for_klines(self, date: str = "22 Oct 2024"):
