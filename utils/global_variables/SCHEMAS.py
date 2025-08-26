@@ -36,11 +36,11 @@ KLINES_SCHEMA = {
 }
 
 TRADES_SCHEMA = {
-    "trade_id": pl.Int64,
+    "id": pl.Int64,
     "price": pl.Float64,
     "qty": pl.Float64,
-    "quote_qty": pl.Float64,
+    "quoteQty": pl.Float64,
     "time": pl.Int64,
-    "is_buyer_maker": pl.Boolean,
-    "is_best_match": pl.Boolean,
+    "isBuyerMaker": pl.Boolean,
+    "isBestMatch": pl.Boolean,
 }
