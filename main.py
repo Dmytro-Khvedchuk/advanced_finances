@@ -1,10 +1,11 @@
 from dotenv import load_dotenv
-from binance.client import Client
+from binance.client import Client as BinanceClient
 from os import getenv
 from engine.apps.data_managers.market_data_manager import MarketDataManager
 from engine.core.bars.bars import Bars
 from utils.charts.chart import Chart
 from utils.global_variables.GLOBAL_VARIABLES import LEVEL_MAP, SYMBOL
+from engine.apps.data_managers.clickhouse.client import get_clickhouse_client
 
 
 def pick_log_level():
@@ -24,18 +25,22 @@ def main():
     load_dotenv()
 
     chart = Chart()
-    client = Client(
+    binance_client = BinanceClient(
         api_key=getenv("BINANCE_API_KEY"), api_secret=getenv("BINANCE_API_SECRET")
     )
 
-    mdm = MarketDataManager(client=client, symbol=SYMBOL, log_level=log_level)
+    database_client = get_clickhouse_client()
 
-    df = mdm.get_trades()
+    mdm = MarketDataManager(
+        binance_client=binance_client,
+        database_client=database_client,
+        symbol=SYMBOL,
+        log_level=log_level,
+    )
 
-    bars_maker = Bars(log_level=log_level)
+    data = mdm.trade_manager.get_trades(start_id=5_190_000_000, end_id=5_190_100_000)
 
-    bars, _ = bars_maker.get_tick_bars(trades_data=df, bar_size=100)
-
+    print(data)
 
 if __name__ == "__main__":
     main()
