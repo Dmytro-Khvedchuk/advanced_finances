@@ -1,5 +1,6 @@
-from __future__ import annotations
 from binance.client import Client
+from requests.exceptions import ReadTimeout
+from time import sleep
 from typing import List, Dict, Any
 from utils.global_variables.GLOBAL_VARIABLES import (
     SYMBOL,
@@ -8,8 +9,6 @@ from utils.global_variables.GLOBAL_VARIABLES import (
     RETRY_DELAY,
 )
 from utils.logger.logger import LoggerWrapper, log_execution
-from time import sleep
-from requests.exceptions import ReadTimeout
 
 
 class FetchData:
