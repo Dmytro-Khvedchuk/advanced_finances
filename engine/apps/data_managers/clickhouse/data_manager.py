@@ -5,7 +5,6 @@ from engine.apps.data_managers.clickhouse.managers.klines_manager import (
 from engine.apps.data_managers.clickhouse.managers.trades_manager import (
     ClickHouseTradesManager,
 )
-
 from utils.logger.logger import LoggerWrapper
 
 

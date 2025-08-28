@@ -1,19 +1,19 @@
+from API.data_fetcher import FetchData
+from binance.client import Client as BinanceClient
+from clickhouse_driver import Client as DBClient
 from engine.apps.data_managers.clickhouse.data_manager import ClickHouseDataManager
+from numpy import arange, append, diff, insert, int64, ndarray, setxor1d, sort, where
+from polars import DataFrame
+from tqdm import tqdm
+from typing import Any
+from utils.global_variables.GLOBAL_VARIABLES import (
+    BINANCE_EARLIEST_ID,
+    BINANCE_TRADES_LIMIT,
+    SYMBOL,
+)
 from utils.global_variables.SCHEMAS import TRADES_SCHEMA
 from utils.logger.logger import LoggerWrapper
 from utils.logger.logger import log_execution
-from utils.global_variables.GLOBAL_VARIABLES import (
-    SYMBOL,
-    BINANCE_TRADES_LIMIT,
-    BINANCE_EARLIEST_ID,
-)
-import polars as pl
-from binance.client import Client as BinanceClient
-from clickhouse_driver import Client as DBClient
-from API.data_fetcher import FetchData
-import numpy as np
-from tqdm import tqdm
-from typing import Any
 
 
 class TradeDataManager:
@@ -36,10 +36,10 @@ class TradeDataManager:
     @log_execution
     def get_trades(
         self, *, start_id: int | None = None, end_id: int | None = None
-    ) -> pl.DataFrame:
+    ) -> DataFrame:
         self.click_house_data_manager.trades.create_trades_table(symbol=self.symbol)
 
-        present_ids_in_db = pl.DataFrame(
+        present_ids_in_db = DataFrame(
             self.click_house_data_manager.trades.get_trades(
                 symbol=self.symbol, start_id=start_id, end_id=end_id, columns=["id"]
             ),
@@ -51,15 +51,15 @@ class TradeDataManager:
             start_id=start_id, end_id=end_id
         )
 
-        ids_to_fetch = np.setxor1d(present_ids_in_db, expected_ids)
-        ids_to_fetch = np.sort(ids_to_fetch)
+        ids_to_fetch = setxor1d(present_ids_in_db, expected_ids)
+        ids_to_fetch = sort(ids_to_fetch)
 
         if ids_to_fetch.size > 0:
             self.logger.info("Missing data in the dataframe. Fetching...")
             fetch_ids_dictionary = self._get_consecutive_trades(arr=ids_to_fetch)
             self._fetch_and_write_trades(fetch_ids_dictionary=fetch_ids_dictionary)
 
-        data = pl.DataFrame(
+        data = DataFrame(
             self.click_house_data_manager.trades.get_trades(
                 symbol=self.symbol,
                 start_id=start_id,
@@ -79,7 +79,7 @@ class TradeDataManager:
         if end_id is None:
             end_id = self.data_fetcher.fetch_recent_trades(limit=1)[0]["id"]
 
-        return np.arange(start_id, end_id + 1, dtype=np.int64), start_id, end_id
+        return arange(start_id, end_id + 1, dtype=int64), start_id, end_id
 
     # ---=== HELPER METHODS ===---
     def _fetch_and_write_trades(self, fetch_ids_dictionary: dict):
@@ -90,7 +90,7 @@ class TradeDataManager:
             for range_id, limit in tqdm(
                 zip(fetch_points, limits), total=len(fetch_points), desc=desc
             ):
-                data = pl.DataFrame(
+                data = DataFrame(
                     self.data_fetcher.fetch_historical_trades(
                         from_id=int(range_id), limit=int(limit)
                     ),
@@ -116,7 +116,7 @@ class TradeDataManager:
     def _calculate_fetch_points(amount: int, from_id: int):
         """Calculate fetch start points and limits based on Binance API constraints."""
         if amount > BINANCE_TRADES_LIMIT:
-            fetch_points = np.arange(from_id, from_id + amount, BINANCE_TRADES_LIMIT)
+            fetch_points = arange(from_id, from_id + amount, BINANCE_TRADES_LIMIT)
             limits = [BINANCE_TRADES_LIMIT] * len(fetch_points)
         else:
             fetch_points = [from_id]
@@ -125,11 +125,11 @@ class TradeDataManager:
         return fetch_points, limits
 
     @staticmethod
-    def _get_consecutive_trades(arr: np.ndarray) -> dict[Any, Any]:
-        breaks = np.where(np.diff(arr) != 1)[0]
+    def _get_consecutive_trades(arr: ndarray) -> dict[Any, Any]:
+        breaks = where(diff(arr) != 1)[0]
 
-        starts_idx = np.insert(breaks + 1, 0, 0)
-        ends_idx = np.append(breaks, len(arr) - 1)
+        starts_idx = insert(breaks + 1, 0, 0)
+        ends_idx = append(breaks, len(arr) - 1)
 
         lengths = ends_idx - starts_idx + 1
         starts = arr[starts_idx]
