@@ -9,6 +9,7 @@ from utils.global_variables.GLOBAL_VARIABLES import (
 )
 from utils.logger.logger import LoggerWrapper
 
+
 class MarketDataManager:
     def __init__(
         self,

@@ -3,7 +3,7 @@ from binance.client import Client as BinanceClient
 from clickhouse_driver import Client as DBClient
 from dateutil.parser import parse
 from engine.apps.data_managers.clickhouse.data_manager import ClickHouseDataManager
-from numpy import arange, int64, ndarray, setxor1d, sort 
+from numpy import arange, int64, ndarray, setxor1d, sort
 from polars import DataFrame
 from tqdm import tqdm
 from utils.global_variables.GLOBAL_VARIABLES import (
