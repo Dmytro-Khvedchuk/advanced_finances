@@ -1,22 +1,22 @@
+from API.data_fetcher import FetchData
+from binance.client import Client as BinanceClient
+from clickhouse_driver import Client as DBClient
+from dateutil.parser import parse
+from engine.apps.data_managers.clickhouse.data_manager import ClickHouseDataManager
+from numpy import arange, int64, ndarray, setxor1d, sort 
+from polars import DataFrame
+from tqdm import tqdm
 from utils.global_variables.GLOBAL_VARIABLES import (
-    SYMBOL,
-    BINANCE_TRADES_LIMIT,
-    TIMEFRAME,
-    TIMEFRAME_MAP,
     BINANCE_EARLIEST_DATE,
     BINANCE_LATEST_DATE,
+    BINANCE_TRADES_LIMIT,
+    SYMBOL,
+    TIMEFRAME,
+    TIMEFRAME_MAP,
 )
 from utils.global_variables.SCHEMAS import KLINES_SCHEMA
-from dateutil.parser import parse
-import polars as pl
 from utils.logger.logger import LoggerWrapper
 from utils.logger.logger import log_execution
-import numpy as np
-from tqdm import tqdm
-from clickhouse_driver import Client as DBClient
-from engine.apps.data_managers.clickhouse.data_manager import ClickHouseDataManager
-from binance.client import Client as BinanceClient
-from API.data_fetcher import FetchData
 
 
 class KlineDataManager:
@@ -36,7 +36,6 @@ class KlineDataManager:
             client=database_client, log_level=log_level
         )
 
-    # TODO: refactor
     @log_execution
     def get_klines(
         self,
@@ -45,6 +44,18 @@ class KlineDataManager:
         end_date: str | None = None,
         timeframe: str = TIMEFRAME,
     ):
+        """
+        Function that returns polars dataframe of klines.
+        If data is not in database, it fetches necessary data from API
+
+        :param start_date: Starting date of data
+        :type start_date: str | None
+        :param end_date: Ending date of data
+        :type end_date: str | None
+        :param timeframe: timeframe of data
+        :type timeframe: str
+        :returns: pl.DataFrame with all requested data
+        """
         self.click_house_data_manager.klines.create_klines_table(
             symbol=self.symbol, timeframe=timeframe
         )
@@ -54,7 +65,7 @@ class KlineDataManager:
         if end_date:
             end_date = self._parse_date_for_klines(end_date)
 
-        present_time_in_db = pl.DataFrame(
+        present_time_in_db = DataFrame(
             self.click_house_data_manager.klines.get_klines(
                 symbol=self.symbol,
                 timeframe=timeframe,
@@ -70,8 +81,8 @@ class KlineDataManager:
             start_date=start_date, end_date=end_date, timeframe=timeframe
         )
 
-        timestamps_to_fetch = np.setxor1d(present_time_in_db, expected_time_in_db)
-        timestamps_to_fetch = np.sort(timestamps_to_fetch)
+        timestamps_to_fetch = setxor1d(present_time_in_db, expected_time_in_db)
+        timestamps_to_fetch = sort(timestamps_to_fetch)
 
         if timestamps_to_fetch.size > 0:
             self.logger.info("Missing data in the dataframe. Fetching...")
@@ -84,7 +95,7 @@ class KlineDataManager:
 
             self._fetch_and_write_klines(fetch_dictionary=elements, timeframe=timeframe)
 
-        data = pl.DataFrame(
+        data = DataFrame(
             self.click_house_data_manager.klines.get_klines(
                 symbol=self.symbol,
                 timeframe=timeframe,
@@ -97,15 +108,24 @@ class KlineDataManager:
 
         return data
 
+    # ---=== HELPER METHODS ===---
     @log_execution
     def _fetch_and_write_klines(
         self, fetch_dictionary: dict, timeframe: str = TIMEFRAME
     ):
-        interval_ms = TIMEFRAME_MAP[timeframe]  # перетворення 1h → 3600000 ms
+        """
+        Helper function. Fetches data with Data Fetcher Module that connects to Binance API
+
+        :param fetch_dictionary: dictionary that contains ranges in ms {start_time_ms: end_time_ms}
+        :type fetch_dictionary: dict
+        :param timeframe: timeframe of the klines
+        :type timeframe: str
+        """
+        interval_ms = TIMEFRAME_MAP[timeframe]
         for from_ts, to_ts in tqdm(fetch_dictionary.items(), desc="Fetching klines"):
             start = from_ts
             while start <= to_ts:
-                data = pl.DataFrame(
+                data = DataFrame(
                     self.data_fetcher.fetch_historical_klines(
                         timeframe=timeframe, start_str=start, end_str=to_ts
                     ),
@@ -121,8 +141,14 @@ class KlineDataManager:
 
                 start = int(data["open_time"].max().timestamp() * 1000) + interval_ms
 
-    # ---=== HELPER METHODS ===---
     def _parse_date_for_klines(self, date: str = "22 Oct 2024"):
+        """
+        Helper function. Parses string date format into UNIX ms
+
+        :param date: date in string format like 22 Oct 2024
+        :type date: str
+        :returns: timestamp in UNIX ms format
+        """
         try:
             parsed_date = parse(date)
             timestamp_ms = int(parsed_date.timestamp() * 1000)
@@ -131,17 +157,24 @@ class KlineDataManager:
             self.logger.error(f"Failed to parse date '{date}': {fallback_error}. ")
             raise ValueError(f"Failed to parse date '{date}': {fallback_error}. ")
 
-    # ---=== STATIC METHODS ===---
     def _generate_expected_timestamps(
         self,
         *,
         start_date: str | None = None,
         end_date: str | None = None,
         timeframe: str = TIMEFRAME,
-    ) -> np.ndarray:
+    ) -> ndarray:
         """
-        Generate expected timestamps (in ms) between start_date and end_date
-        based on timeframe (1m, 1h, 1D, ...), fast with NumPy.
+        Generate expected timestamps (in ms) between "start_date" and "end_date"
+        based on "timeframe" (1m, 1h, 1D, ...).
+
+        :param start_date: Starting date of data
+        :type start_date: str | None
+        :param end_date: Ending date of data
+        :type end_date: str | None
+        :param timframe: Binance timeframe of klines
+        :type timeframe: str
+        :returns: np.ndarray with timestamps in UNIX ms
         """
 
         if start_date is None:
@@ -155,4 +188,4 @@ class KlineDataManager:
 
         step_ms = int(TIMEFRAME_MAP[timeframe].total_seconds() * 1000)
 
-        return np.arange(start_date, end_date + 1, step_ms, dtype=np.int64)
+        return arange(start_date, end_date + 1, step_ms, dtype=int64)
