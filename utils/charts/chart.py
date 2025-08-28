@@ -138,7 +138,7 @@ class OrderbookChart:
         *,
         lower: float,
         upper: float,
-        bucket_size: float = 1.0
+        bucket_size: float = 1.0,
     ):
         """Render bids/asks in a fixed price window with identical price buckets."""
         self.lower, self.upper = lower, upper
