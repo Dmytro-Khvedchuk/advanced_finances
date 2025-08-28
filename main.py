@@ -9,6 +9,7 @@ from utils.global_variables.GLOBAL_VARIABLES import LEVEL_MAP, SYMBOL
 
 
 def pick_log_level():
+    """Function for picking log level"""
     while True:
         print(LEVEL_MAP)
         log_level = int(input("Please pick a log level: ").strip())
