@@ -1,7 +1,7 @@
-from typing import Any
+from numpy import abs, mean, where
 from polars import Boolean, col, concat, DataFrame, Float64, Int64, lit
 from tqdm import tqdm
-from numpy import where, mean, abs
+from typing import Any
 
 
 def build_dollar_imbalance_bars(

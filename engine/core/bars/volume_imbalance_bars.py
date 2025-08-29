@@ -1,43 +1,48 @@
-import polars as pl
+from polars import Boolean, col, concat, DataFrame, Float64, Int64, when
 from typing import Any
 
 
 def build_volume_imbalance_bars(
-    data,
+    data: DataFrame,
     *,
     alpha: float = 1.0,
     ema_span: int = 50,
     warmup_ticks: int = 200,
-) -> tuple[pl.DataFrame | Any, pl.DataFrame]:
+) -> tuple[DataFrame | Any, DataFrame]:
     """
     Build volume imbalance bars from raw data
-    :param data: raw fetched data from binance, or directly a polars dataframe
+
+    :param data: Polars DataFrame
+    :type data: pl.DataFrame
     :param alpha: Scaling factor in the stopping rule threshold.
+    :type alpha: float
     :param ema_span: Span for EMA updates of expected volume per bar and expected imbalance.
         (EMA alpha is computed as 2/(span+1)).
+    :type ema_span: int
     :param warmup_ticks: Use the first `warmup_ticks` trades to seed initial expectations.
         If not enough ticks exist, the function degrades gracefully.
-    :return: volume imbalance bars, unfinished part
+    :type warmup_ticks: int
+    :returns: volume imbalance bars, unfinished part
     """
-    if isinstance(data, pl.DataFrame):
+    if isinstance(data, DataFrame):
         df = data
     else:
-        df = pl.DataFrame(data)
+        df = DataFrame(data)
 
     df = df.select(
-        pl.col("price").cast(pl.Float64),
-        pl.col("qty").cast(pl.Float64),
-        pl.col("time").cast(pl.Int64),
-        pl.col("id").cast(pl.Int64),
-        pl.col("isBuyerMaker").cast(pl.Boolean),
+        col("price").cast(Float64),
+        col("qty").cast(Float64),
+        col("time").cast(Int64),
+        col("id").cast(Int64),
+        col("isBuyerMaker").cast(Boolean),
     ).sort("time")
 
     df = df.with_columns(
-        pl.when(~pl.col("isBuyerMaker"))
-        .then(pl.col("qty"))
-        .otherwise(-pl.col("qty"))
+        when(~col("isBuyerMaker"))
+        .then(col("qty"))
+        .otherwise(-col("qty"))
         .alias("signed_qty"),
-        (~pl.col("isBuyerMaker")).alias("buyer_taker"),
+        (~col("isBuyerMaker")).alias("buyer_taker"),
     )
 
     bars = []
@@ -68,7 +73,7 @@ def build_volume_imbalance_bars(
             bar = df.slice(bar_start_idx, i - bar_start_idx + 1)
 
             bars.append(
-                pl.DataFrame(
+                DataFrame(
                     {
                         "bar_id": [bar_id],
                         "start_time": [bar["time"][0]],
@@ -94,8 +99,8 @@ def build_volume_imbalance_bars(
             signed_cum_vol = 0.0
             bar_start_idx = i + 1
 
-    bars = pl.concat(bars) if bars else pl.DataFrame()
+    bars = concat(bars) if bars else DataFrame()
 
-    unfinished_part = pl.DataFrame()
+    unfinished_part = DataFrame()
 
     return bars, unfinished_part
