@@ -1,12 +1,20 @@
-from logging import Formatter, INFO, getLogger, StreamHandler
 from colorama import init, Fore, Style
-from time import time
 from functools import wraps
+from logging import Formatter, getLogger, INFO, StreamHandler
+from time import time
 
 init(autoreset=True)
 
 
 def log_execution(func):
+    """
+    Wraps a function call into logs
+
+    :param func: Function that will be executed
+    :type func: function
+    :returns: Logs into the terminal
+    """
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         self.logger.info(

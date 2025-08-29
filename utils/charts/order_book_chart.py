@@ -1,3 +1,4 @@
+# temporarily deprecated
 from bokeh.plotting import figure, show, output_file
 from bokeh.models import ColumnDataSource, HoverTool, NumeralTickFormatter, Span, Div
 from bokeh.layouts import column

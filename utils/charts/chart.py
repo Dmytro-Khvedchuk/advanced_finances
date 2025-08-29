@@ -1,13 +1,10 @@
-from utils.charts.order_book_chart import make_orderbook_bar_from_lists
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, HoverTool, NumeralTickFormatter
-from utils.charts.candle_chart import plot_candles_bokeh_pl
-import math
-from collections import defaultdict
 from bokeh.models import FixedTicker
-import math
 from collections import defaultdict
+from math import floor
 from typing import Iterable, Tuple
+from utils.charts.candle_chart import plot_candles_bokeh_pl
 
 
 class Chart:
@@ -21,6 +18,7 @@ class Chart:
         plot_candles_bokeh_pl(data)
 
 
+# temporarily deprecated
 class OrderbookChart:
     def __init__(self, width=1280, height=720, title="Order Book Depth"):
         self.bid_src = ColumnDataSource(dict(price=[], qty=[], abs_qty=[]))
@@ -84,11 +82,11 @@ class OrderbookChart:
         ask_bins = defaultdict(float)
 
         for p, q in bids:
-            bucket = math.floor(p)  # $[n, n+1) bin
+            bucket = floor(p)  # $[n, n+1) bin
             bid_bins[bucket] += q
 
         for p, q in asks:
-            bucket = math.floor(p)
+            bucket = floor(p)
             ask_bins[bucket] += q
 
         # 2) Turn into sorted lists (price axis goes down for bids, up for asks)
@@ -163,8 +161,8 @@ class OrderbookChart:
             self.figure.y_range.end = upper - (bucket_size / 2.0) + 0.6
 
             # $1 ticks (or bucket_size) aligned to centers
-            start_tick = math.floor(lower / bucket_size)
-            end_tick = math.floor((upper - 1e-9) / bucket_size)
+            start_tick = floor(lower / bucket_size)
+            end_tick = floor((upper - 1e-9) / bucket_size)
             ticks = [
                 t * bucket_size + (bucket_size / 2.0)
                 for t in range(start_tick, end_tick + 1)
@@ -193,19 +191,19 @@ def _bin_orderbook_to_window(
         return [], [], []
 
     # normalize window to bucket indexes
-    start_bucket = math.floor(lower / bucket_size)
-    end_bucket = math.floor((upper - 1e-9) / bucket_size)  # inclusive last bucket
+    start_bucket = floor(lower / bucket_size)
+    end_bucket = floor((upper - 1e-9) / bucket_size)  # inclusive last bucket
 
     bid_bins = defaultdict(float)
     ask_bins = defaultdict(float)
 
     for p, q in bids:
         if lower <= p < upper:
-            b = math.floor(p / bucket_size)
+            b = floor(p / bucket_size)
             bid_bins[b] += q
     for p, q in asks:
         if lower <= p < upper:
-            b = math.floor(p / bucket_size)
+            b = floor(p / bucket_size)
             ask_bins[b] += q
 
     buckets = list(range(start_bucket, end_bucket + 1))
