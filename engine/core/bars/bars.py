@@ -13,6 +13,7 @@ from utils.logger.logger import LoggerWrapper
 
 
 class Bars:
+    # Note! All bars here are represented with details in Lopez De Prado book Advances in Financial Machine Learning
     def __init__(self, log_level: int):
         self.logger = LoggerWrapper(name="Bars Creation Module", level=log_level)
         pass
