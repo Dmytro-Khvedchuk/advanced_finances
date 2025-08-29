@@ -1,21 +1,13 @@
-# TODO: refactor this code, so the trades, order book and klines will be separate classes, its getting out of hand 😭
-import polars as pl
-import numpy as np
+from API.data_fetcher import FetchData
 from binance.client import Client as BinanceClient
 from clickhouse_driver import Client as DBClient
-from API.data_fetcher import FetchData
-from typing import Any
 from engine.apps.data_managers.clickhouse.data_manager import ClickHouseDataManager
 from engine.apps.data_managers.managers.klines_manager import KlineDataManager
 from engine.apps.data_managers.managers.trades_manager import TradeDataManager
 from utils.global_variables.GLOBAL_VARIABLES import (
-    BINANCE_TRADES_LIMIT,
     SYMBOL,
-    TIMEFRAME,
 )
-from tqdm import tqdm
 from utils.logger.logger import LoggerWrapper
-from utils.logger.logger import log_execution
 
 
 class MarketDataManager:
@@ -46,12 +38,3 @@ class MarketDataManager:
         self.data_fetcher = FetchData(
             client=binance_client, symbol=symbol, log_level=log_level
         )
-
-    # TODO: rewrite
-    @log_execution
-    def get_trades():
-        pass
-
-    @log_execution
-    def get_order_book(self):
-        pass

@@ -1,9 +1,9 @@
-import yaml
-from pathlib import Path
 from datetime import timedelta, datetime
+from pathlib import Path
+from yaml import safe_load
 
 with open("configs/config.yaml") as f:
-    cfg = yaml.safe_load(f)
+    cfg = safe_load(f)
 
 # === PATHS ===
 PROJECT_ROOT = Path(cfg["paths"]["project_root"])

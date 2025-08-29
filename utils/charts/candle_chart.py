@@ -1,20 +1,33 @@
-from bokeh.models import NumeralTickFormatter
-import numpy as np
 from bokeh.io import show, output_file
+from bokeh.models import NumeralTickFormatter
 from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.plotting import figure
+from numpy import arange, full_like, int64
+from polars import DataFrame
 
 
 def plot_candles_bokeh_pl(
-    df,
+    df: DataFrame,
     open_col: str = "open",
     high_col: str = "high",
     low_col: str = "low",
     close_col: str = "close",
     title: str = "Candlestick Chart",
 ):
+    """
+    Plots a standard barchart from OHLC data
 
-    # --- validate ---
+    :param open_col: Name of the Open column
+    :type open_col: str
+    :param high_col: Name of the High column
+    :type high_col: str
+    :param low_col: Name of the Low column
+    :type low_col: str
+    :param close_col: Name of the Close column
+    :type close_col: str
+    :param title: Title of the plot
+    :type title: str
+    """
     required = [open_col, high_col, low_col, close_col]
     missing = [c for c in required if c not in df.columns]
     if missing:
@@ -23,13 +36,10 @@ def plot_candles_bokeh_pl(
     if df.height == 0:
         raise ValueError("Empty DataFrame.")
 
-    # --- create bar numbers ---
-    bar_numbers = np.arange(len(df), dtype=np.int64)
+    bar_numbers = arange(len(df), dtype=int64)
 
-    # --- width in bar-number units ---
-    width_units = 1.0  # spans exactly from N-0.5 to N+0.5
+    width_units = 1.0
 
-    # --- ohlc arrays ---
     o = df.get_column(open_col).to_numpy()
     h = df.get_column(high_col).to_numpy()
     l = df.get_column(low_col).to_numpy()
@@ -38,10 +48,9 @@ def plot_candles_bokeh_pl(
     up = c >= o
     down = ~up
 
-    # --- sources ---
     common = dict(
         x=bar_numbers,
-        width=np.full_like(bar_numbers, width_units),
+        width=full_like(bar_numbers, width_units),
         open=o,
         high=h,
         low=l,
@@ -51,7 +60,6 @@ def plot_candles_bokeh_pl(
     dec_src = ColumnDataSource({k: v[down] for k, v in common.items()})
     wick_src = ColumnDataSource(dict(x=bar_numbers, high=h, low=l))
 
-    # --- figure ---
     p = figure(
         x_axis_type="linear",
         title=title,
@@ -63,10 +71,8 @@ def plot_candles_bokeh_pl(
     p.toolbar.autohide = True
     p.xaxis.axis_label = "Bar Number"
 
-    # wicks
     p.segment(x0="x", y0="high", x1="x", y1="low", source=wick_src, line_width=1)
     p.yaxis.formatter = NumeralTickFormatter(format="0,0.00")
-    # bodies
     p.vbar(
         x="x",
         width="width",
@@ -86,7 +92,6 @@ def plot_candles_bokeh_pl(
         line_color="#ef5350",
     )
 
-    # hover
     hover = HoverTool(
         tooltips=[
             ("Bar #", "@x"),

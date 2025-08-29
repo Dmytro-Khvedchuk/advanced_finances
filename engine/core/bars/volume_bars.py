@@ -1,59 +1,60 @@
-import polars as pl
+from polars import col, concat, DataFrame, Float64, Int64, len, lit
 from typing import Any
 
 
-def build_volume_bars(data, bar_size: float) -> tuple[pl.DataFrame | Any, pl.DataFrame]:
+def build_volume_bars(
+    data: DataFrame, bar_size: float
+) -> tuple[DataFrame | Any, DataFrame]:
     """
     Build a volume bars from raw data
-    :param data: raw fetched data from binance, or directly a polars dataframe
-    :param bar_size: amount of dollars for a bar formation
-    :return: volume bars, unfinished part
+
+    :param data: Polars DataFrame of trades data
+    :type data: pl.DataFrame
+    :param bar_size: Amount of dollars for a bar formation
+    :type bar_size: float
+    :returns: volume bars, unfinished part
     """
-    if isinstance(data, pl.DataFrame):
+    if isinstance(data, DataFrame):
         df = data
     else:
-        df = pl.DataFrame(data)
+        df = DataFrame(data)
 
     df = df.select(
-        pl.col("price").cast(pl.Float64),
-        pl.col("qty").cast(pl.Float64),
-        pl.col("id").cast(pl.Int64),
+        col("price").cast(Float64),
+        col("qty").cast(Float64),
+        col("id").cast(Int64),
     ).sort("id")
 
     bar_id = 1
-    bars = pl.DataFrame()
+    bars = DataFrame()
 
     while not df.is_empty():
-        df = df.with_columns(pl.col("qty").cum_sum().alias("cumulative_volume"))
+        df = df.with_columns(col("qty").cum_sum().alias("cumulative_volume"))
 
-        cross_mask = (pl.col("cumulative_volume") >= bar_size) & (
-            pl.col("cumulative_volume").shift(1) < bar_size
+        cross_mask = (col("cumulative_volume") >= bar_size) & (
+            col("cumulative_volume").shift(1) < bar_size
         )
 
-        df_until_cross = df.filter(
-            (pl.col("cumulative_volume") < bar_size) | cross_mask
-        )
+        df_until_cross = df.filter((col("cumulative_volume") < bar_size) | cross_mask)
 
         if df_until_cross.is_empty():
             break
 
         bar_row = df_until_cross.select(
             [
-                pl.lit(bar_id).alias("bar_id"),
-                pl.col("id").first().alias("open_id"),
-                pl.col("id").last().alias("close_id"),
-                pl.col("price").first().alias("open"),
-                pl.col("price").max().alias("high"),
-                pl.col("price").min().alias("low"),
-                pl.col("price").last().alias("close"),
-                pl.col("qty").sum().alias("volume"),
-                pl.len().alias("trades"),
+                lit(bar_id).alias("bar_id"),
+                col("id").first().alias("open_id"),
+                col("id").last().alias("close_id"),
+                col("price").first().alias("open"),
+                col("price").max().alias("high"),
+                col("price").min().alias("low"),
+                col("price").last().alias("close"),
+                col("qty").sum().alias("volume"),
+                len().alias("trades"),
             ]
         )
 
-        bars = (
-            bar_row if bars.is_empty() else pl.concat([bars, bar_row], how="vertical")
-        )
+        bars = bar_row if bars.is_empty() else concat([bars, bar_row], how="vertical")
 
         df = df.join(df_until_cross.select("id"), on="id", how="anti").drop(
             "cumulative_volume"
@@ -61,6 +62,6 @@ def build_volume_bars(data, bar_size: float) -> tuple[pl.DataFrame | Any, pl.Dat
 
         bar_id += 1
 
-    unfinished_part = pl.DataFrame()
+    unfinished_part = DataFrame()
 
     return bars, unfinished_part
