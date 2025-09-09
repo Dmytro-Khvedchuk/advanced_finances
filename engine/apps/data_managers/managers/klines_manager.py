@@ -2,6 +2,7 @@ from API.data_fetcher import FetchData
 from binance.client import Client as BinanceClient
 from clickhouse_driver import Client as DBClient
 from dateutil.parser import parse
+from datetime import timedelta
 from engine.apps.data_managers.clickhouse.data_manager import ClickHouseDataManager
 from numpy import arange, int64, ndarray, setxor1d, sort
 from polars import DataFrame
@@ -123,7 +124,8 @@ class KlineDataManager:
         """
         interval_ms = TIMEFRAME_MAP[timeframe]
         for from_ts, to_ts in tqdm(fetch_dictionary.items(), desc="Fetching klines"):
-            start = from_ts
+            start = int(from_ts)
+            to_ts = int(to_ts)
             while start <= to_ts:
                 data = DataFrame(
                     self.data_fetcher.fetch_historical_klines(
@@ -136,8 +138,11 @@ class KlineDataManager:
                     break
 
                 self.click_house_data_manager.klines.insert_klines(
-                    df=data, symbol=self.symbol
+                    df=data, symbol=self.symbol, timeframe=timeframe
                 )
+
+                if isinstance(interval_ms, timedelta):
+                    interval_ms = int(interval_ms.total_seconds() * 1000)
 
                 start = int(data["open_time"].max()) + interval_ms
 

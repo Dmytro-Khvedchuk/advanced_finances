@@ -9,15 +9,16 @@ from utils.logger.logger import LoggerWrapper, log_execution
 class BackTest:
     def __init__(
         self,
-        client: Client,
-        symbol: str = SYMBOL,
+        data: dict,
         log_level: int = 10,
         initial_balance: int = 10000,
         maker_fee: float = 0.001,
         taker_fee: float = 0.001,
     ):
-        self.client = client
-        self.symbol = symbol
+        self.logger = LoggerWrapper(name="Backtest Module", level=log_level)
+        
+        # data will be stored as {symbol : data}
+        self.data = data
 
         self.portfolio = Portfolio(
             initial_balance=initial_balance,
@@ -25,7 +26,6 @@ class BackTest:
             taker_fee=taker_fee,
             log_level=log_level,
         )
-        self.logger = LoggerWrapper(name="BackTest Module", level=log_level)
         self.execution_handler = ExecutionHandler(self.portfolio)
         self.report_generator = ReportGenerator(self.portfolio)
 

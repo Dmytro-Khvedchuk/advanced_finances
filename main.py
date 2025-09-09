@@ -39,7 +39,7 @@ def main():
         log_level=log_level,
     )
 
-    trades = mdm.trade_manager.get_trades(start_id=5_190_000_000, end_id=5_190_100_000)
+    trades = mdm.kline_manager.get_klines(start_date="22 10 2024", end_date="22 11 2024", timeframe="5m")
 
     print(trades)
 
