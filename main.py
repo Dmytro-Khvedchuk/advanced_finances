@@ -7,6 +7,8 @@ from os import getenv
 from utils.charts.chart import Chart
 from utils.global_variables.GLOBAL_VARIABLES import LEVEL_MAP, SYMBOL
 
+from engine.core.strategies.ta_strategies.RSI_strategy import RSIStrategy
+
 
 def pick_log_level():
     """Function for picking log level"""
@@ -55,6 +57,7 @@ def main():
     leverage = 2
     maker_fee = 0.0002
     taker_fee = 0.0004
+    strategy = RSIStrategy()
 
     data = {}
 
@@ -67,6 +70,7 @@ def main():
 
     backtest_engine = BackTest(
         data=data,
+        strategy=strategy,
         log_level=log_level,
         initial_balance=initial_balance,
         leverage=leverage,
