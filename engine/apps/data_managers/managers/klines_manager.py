@@ -3,6 +3,7 @@ from binance.client import Client as BinanceClient
 from clickhouse_driver import Client as DBClient
 from dateutil.parser import parse
 from datetime import timedelta
+from datetime import timezone
 from engine.apps.data_managers.clickhouse.data_manager import ClickHouseDataManager
 from numpy import arange, int64, ndarray, setxor1d, sort
 from polars import DataFrame
@@ -24,15 +25,13 @@ class KlineDataManager:
     def __init__(
         self,
         database_client: DBClient,
-        binance_client: BinanceClient,
+        data_fetcher: FetchData,
         symbol: str = SYMBOL,
         log_level: int = 10,
     ):
         self.logger = LoggerWrapper(name="Kline Data Manager Module", level=log_level)
         self.symbol = symbol
-        self.data_fetcher = FetchData(
-            client=binance_client, symbol=symbol, log_level=log_level
-        )
+        self.data_fetcher = data_fetcher
         self.click_house_data_manager = ClickHouseDataManager(
             client=database_client, log_level=log_level
         )
@@ -105,7 +104,7 @@ class KlineDataManager:
             ),
             schema=KLINES_SCHEMA,
             orient="row",
-        )
+        ).sort(by="open_time")
 
         return data
 
@@ -156,6 +155,12 @@ class KlineDataManager:
         """
         try:
             parsed_date = parse(date)
+
+            if parsed_date.tzinfo is None:
+                parsed_date = parsed_date.replace(tzinfo=timezone.utc)
+            else:
+                parsed_date = parsed_date.astimezone(timezone.utc)
+
             timestamp_ms = int(parsed_date.timestamp() * 1000)
             return timestamp_ms
         except Exception as fallback_error:

@@ -20,15 +20,13 @@ class TradeDataManager:
     def __init__(
         self,
         database_client: DBClient,
-        binance_client: BinanceClient,
+        data_fetcher : FetchData,
         symbol: str = SYMBOL,
         log_level: int = 10,
     ):
         self.logger = LoggerWrapper(name="Trade Data Manager Module", level=log_level)
         self.symbol = symbol
-        self.data_fetcher = FetchData(
-            client=binance_client, symbol=symbol, log_level=log_level
-        )
+        self.data_fetcher = data_fetcher
         self.click_house_data_manager = ClickHouseDataManager(
             client=database_client, log_level=log_level
         )
