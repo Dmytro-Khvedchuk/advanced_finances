@@ -1,7 +1,7 @@
 from binance.client import Client as BinanceClient
 from dotenv import load_dotenv
+from engine.apps.backtest.engine import BackTest
 from engine.apps.data_managers.market_data_manager import MarketDataManager
-from engine.core.bars.bars import Bars
 from engine.apps.data_managers.clickhouse.client import get_clickhouse_client
 from os import getenv
 from utils.charts.chart import Chart
@@ -39,9 +39,44 @@ def main():
         log_level=log_level,
     )
 
-    trades = mdm.kline_manager.get_klines(start_date="22 10 2024", end_date="22 11 2024", timeframe="5m")
+    symbols = [
+        "BTCUSDT",
+        "ETHUSDT",
+        "LINKUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "SUIUSDT",
+        "AVAXUSDT",
+    ]
+    timeframe = "5m"
+    start_date = "25 6 2025"
+    end_date = "26 7 2025"
+    initial_balance = 10000.0
+    leverage = 2
+    maker_fee = 0.0002
+    taker_fee = 0.0004
 
-    print(trades)
+    data = {}
+
+    for symbol in symbols:
+        mdm.update_symbol(symbol)
+        klines = mdm.kline_manager.get_klines(
+            start_date=start_date, end_date=end_date, timeframe=timeframe
+        )
+        data.update({symbol: klines})
+
+    backtest_engine = BackTest(
+        data=data,
+        log_level=log_level,
+        initial_balance=initial_balance,
+        leverage=leverage,
+        maker_fee=maker_fee,
+        taker_fee=taker_fee,
+    )
+
+    backtest_engine.run()
+
+    backtest_engine.generate_report()
 
 
 if __name__ == "__main__":
