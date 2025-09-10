@@ -4,6 +4,7 @@ from engine.apps.backtest.report import ReportGenerator
 from clickhouse_driver import Client
 from utils.global_variables.GLOBAL_VARIABLES import SYMBOL
 from utils.logger.logger import LoggerWrapper, log_execution
+from engine.core.strategies.strategy import Strategy
 
 import polars as pl
 
@@ -11,7 +12,8 @@ import polars as pl
 class BackTest:
     def __init__(
         self,
-        data: dict,
+        data: dict[str, pl.DataFrame],
+        strategy: Strategy,
         log_level: int = 10,
         initial_balance: int = 10000,
         leverage: int = 1,
@@ -30,7 +32,7 @@ class BackTest:
             taker_fee=taker_fee,
             log_level=log_level,
         )
-        self.execution_handler = ExecutionHandler(self.portfolio)
+        self.execution_handler = ExecutionHandler(self.portfolio, strategy)
         self.report_generator = ReportGenerator(self.portfolio)
 
     # === User Methods ===
@@ -38,21 +40,19 @@ class BackTest:
     def run(self):
         self._iterate_through_candles()
 
-    @log_execution
-    def generate_report(self):
-        pass
-
     # === Helper Methods ===
     def _iterate_through_candles(self):
-        open_time_values = self._get_timestamps()
+        df = next(iter(self.data.values()))
+
+        open_time_values = df["open_time"].to_list()
         for timestamp in open_time_values:
             for symbol, df in self.data.items():
                 series = df.filter(pl.col("open_time") == timestamp)
-                self._execute_orders(symbol, series)
+                self._process_orders(symbol, series)
 
-    def _get_timestamps(self):
-        df = next(iter(self.data.values()))
-        return df["open_time"].to_list()
+    @log_execution
+    def generate_report(self):
+        pass
 
     @log_execution
     def _process_orders(self, symbol: str, series: pl.Series):
