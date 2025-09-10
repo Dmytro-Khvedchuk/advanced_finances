@@ -1,4 +1,5 @@
 from engine.apps.backtest.portfolio import Portfolio
+from polars import pl
 
 
 class ExecutionHandler:
@@ -6,7 +7,7 @@ class ExecutionHandler:
         self.portfolio = portfolio
         pass
 
-    def execute_orders(self):
+    def process_orders(self, symbol: str, series: pl.Series):
         pass
 
     def _check_orders(self):
