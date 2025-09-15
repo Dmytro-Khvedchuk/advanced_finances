@@ -5,10 +5,11 @@ from utils.global_variables.SCHEMAS import ORDER_HISTORY_SCHEMA
 
 
 class RSIStrategy(Strategy):
-    def __init__(self, rsi_period: int = 14):
+    def __init__(self, rsi_period: int = 14, move: float = 0.05):
         self.candles_for_indicators = rsi_period
         self.candles_for_signal = 1
         self.data = {}
+        self.move = move
         self.strategy_name = "RSI Continuation Strategy"
 
     def generate_order(self, symbol: str, new_series: pl.Series):
@@ -22,9 +23,9 @@ class RSIStrategy(Strategy):
         if "rsi" not in data.columns:
             return order
         last_rsi = data["rsi"][-1]
-        if last_rsi > 75.0:
-            take_profit = data["close"] + data["close"] * 0.005
-            stop_loss = data["close"] - data["close"] * 0.005
+        if last_rsi > 85.0:
+            take_profit = data["close"] + data["close"] * self.move
+            stop_loss = data["close"] - data["close"] * self.move
             order_info = {
                 "order_id": None,
                 "symbol": symbol,
@@ -40,9 +41,9 @@ class RSIStrategy(Strategy):
             }
             order = pl.DataFrame(order_info, schema=ORDER_HISTORY_SCHEMA)
 
-        if last_rsi < 25.0:
-            take_profit = data["close"] - data["close"] * 0.005
-            stop_loss = data["close"] + data["close"] * 0.005
+        if last_rsi < 15.0:
+            take_profit = data["close"] - data["close"] * self.move
+            stop_loss = data["close"] + data["close"] * self.move
             order_info = {
                 "order_id": None,
                 "symbol": symbol,
