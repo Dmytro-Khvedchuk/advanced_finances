@@ -50,11 +50,11 @@ def main():
         "SUIUSDT",
         "AVAXUSDT",
     ]
-    timeframe = "5m"
-    start_date = "25 6 2025"
-    end_date = "26 7 2025"
+    timeframe = "1h"
+    start_date = "June 1 2025"
+    end_date = "Aug 30 2025"
     initial_balance = 10000.0
-    leverage = 2
+    leverage = 4
     maker_fee = 0.0002
     taker_fee = 0.0004
     strategy = RSIStrategy()
