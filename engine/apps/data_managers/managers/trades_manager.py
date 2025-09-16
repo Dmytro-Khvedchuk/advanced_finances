@@ -20,7 +20,7 @@ class TradeDataManager:
     def __init__(
         self,
         database_client: DBClient,
-        data_fetcher : FetchData,
+        data_fetcher: FetchData,
         symbol: str = SYMBOL,
         log_level: int = 10,
     ):
