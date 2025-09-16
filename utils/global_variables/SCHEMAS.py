@@ -87,5 +87,5 @@ POSITIONS_SCHEMA = {
     "unrealized_pnl": Float64,
     "realized_pnl": Float64,
     "take_profit": Float64,
-    "stop_loss": Float64
+    "stop_loss": Float64,
 }
