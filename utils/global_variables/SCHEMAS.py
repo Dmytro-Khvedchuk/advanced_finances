@@ -1,4 +1,4 @@
-from polars import Boolean, Float64, Int64, Utf8
+from polars import Boolean, Float64, Int64, Utf8, String
 
 TIBS_SCHEMA = {
     "start_time": Int64,
@@ -43,4 +43,49 @@ TRADES_SCHEMA = {
     "time": Int64,
     "isBuyerMaker": Boolean,
     "isBestMatch": Boolean,
+}
+
+TRADE_HISTORY_SCHEMA = {
+    "order_id": Int64,
+    "symbol": String,
+    "pnl": Float64,
+    "volume": Float64,
+    "direction": String,
+    "entry_time": Int64,
+    "exit_time": Int64,
+    "strategy": String,
+    "stop_loss": Float64,
+    "break_even": Float64,
+    "take_profit": Float64,
+    "closed_by": String,
+    "commissions": Float64,
+}
+
+ORDER_HISTORY_SCHEMA = {
+    "order_id": Int64,
+    "symbol": String,
+    "volume": Float64,
+    "direction": String,
+    "order_type": String,
+    "order_time": Int64,
+    "strategy": String,
+    "status": String,
+    "entry_price": Float64,
+    "take_profit": Float64,
+    "stop_loss": Float64,
+}
+
+POSITIONS_SCHEMA = {
+    "order_id": Int64,
+    "symbol": String,
+    "volume": Float64,
+    "direction": String,
+    "entry_time": Int64,
+    "entry_price": Float64,
+    "leverage": Int64,
+    "strategy": String,
+    "unrealized_pnl": Float64,
+    "realized_pnl": Float64,
+    "take_profit": Float64,
+    "stop_loss": Float64,
 }
