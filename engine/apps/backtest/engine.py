@@ -22,7 +22,6 @@ class BackTest:
     ):
         self.logger = LoggerWrapper(name="Backtest Module", level=log_level)
 
-        # data will be stored as {symbol : data}
         self.data = data
 
         self.portfolio = Portfolio(
@@ -52,7 +51,7 @@ class BackTest:
 
     @log_execution
     def generate_report(self):
-        pass
+        self.report_generator.generate_general_metrics()
 
     @log_execution
     def _process_orders(self, symbol: str, series: pl.Series):

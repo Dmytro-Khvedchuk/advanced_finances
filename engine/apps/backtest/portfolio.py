@@ -15,6 +15,7 @@ class Portfolio:
         self.current_positions = pl.DataFrame(schema=POSITIONS_SCHEMA, orient="row")
         self.order_id = 0
         self.equity = initial_balance
+        self.equity_history = {}
 
         # parameters
         self.leverage = leverage
@@ -28,7 +29,13 @@ class Portfolio:
     # Also it should have something like liquidation chech for each candles
 
     def get_metrics(self):
-        return self.trade_history, self.current_positions
+        return (
+            self.equity_history,
+            self.trade_history,
+            self.order_history,
+            self.current_positions,
+            self.initial_capital,
+        )
 
     def update_orders(self, order):
         order = pl.DataFrame(schema=ORDER_HISTORY_SCHEMA, data=order)
@@ -192,6 +199,13 @@ class Portfolio:
                             pl.DataFrame(data=position, schema=POSITIONS_SCHEMA),
                         ]
                     )
+
+        current_equity = self.equity
+        unrealized_pnl = self.current_positions["unrealized_pnl"].sum()
+        volume_in_positions = self.current_positions["volume"].sum() / self.leverage
+        commissions = self.trade_history["commissions"].sum()
+        total = current_equity + unrealized_pnl + volume_in_positions - commissions
+        self.equity_history.update({timestamp: total})
 
     @staticmethod
     def _calculate_pnl(
