@@ -6,6 +6,8 @@ from utils.global_variables.SCHEMAS import (
     POSITIONS_SCHEMA,
 )
 
+from collections import defaultdict
+
 
 class Portfolio:
     def __init__(self, initial_balance, leverage, maker_fee, taker_fee, log_level):
@@ -15,7 +17,7 @@ class Portfolio:
         self.current_positions = pl.DataFrame(schema=POSITIONS_SCHEMA, orient="row")
         self.order_id = 0
         self.equity = initial_balance
-        self.equity_history = {}
+        self.equity_history = defaultdict(dict)
 
         # parameters
         self.leverage = leverage
@@ -205,7 +207,18 @@ class Portfolio:
         volume_in_positions = self.current_positions["volume"].sum() / self.leverage
         commissions = self.trade_history["commissions"].sum()
         total = current_equity + unrealized_pnl + volume_in_positions - commissions
-        self.equity_history.update({timestamp: total})
+
+        symbol_pnl = self._calculate_symbol_pnl(symbol=symbol)
+
+        self.equity_history[symbol].update({timestamp: symbol_pnl})
+        self.equity_history["General"].update({timestamp: total})
+
+    def _calculate_symbol_pnl(self, symbol: str):
+        symbol_data = self.current_positions.filter(pl.col("symbol") == symbol)
+        realized_total_pnl = self.trade_history.filter(pl.col("symbol") == symbol)['pnl'].sum()
+        unrealized_position_pnl = symbol_data["unrealized_pnl"].sum()
+        realized_position_pnl = symbol_data["realized_pnl"].sum()
+        return realized_position_pnl + unrealized_position_pnl + realized_total_pnl
 
     @staticmethod
     def _calculate_pnl(
