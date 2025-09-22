@@ -52,6 +52,7 @@ class BackTest:
     @log_execution
     def generate_report(self):
         self.report_generator.generate_general_metrics()
+        self.report_generator.generate_symbol_metrics()
 
     @log_execution
     def _process_orders(self, symbol: str, series: pl.Series):

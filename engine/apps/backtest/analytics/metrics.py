@@ -26,11 +26,14 @@ class MetricsGenerator:
         initial_balance,
     ):
         self.equity_history = equity_history
+        self.general_equity_history = self.equity_history["General"]
         self.trade_history = trade_history
         self.order_history = order_history
         self.current_positions = current_positions
         self.initial_balance = initial_balance
-        self.final_balance = self.equity_history[list(self.equity_history.keys())[-1]]
+        self.final_balance = self.general_equity_history[
+            list(self.general_equity_history.keys())[-1]
+        ]
 
     def generate_general_metrics(self):
         metrics = {}
@@ -102,8 +105,8 @@ class MetricsGenerator:
     def _get_equity_curve_stability(self):
         df = pl.DataFrame(
             {
-                "timestamp": list(self.equity_history.keys()),
-                "equity": list(self.equity_history.values()),
+                "timestamp": list(self.general_equity_history.keys()),
+                "equity": list(self.general_equity_history.values()),
             }
         ).sort("timestamp")
         X = df["timestamp"].to_numpy().reshape(-1, 1)
@@ -119,8 +122,8 @@ class MetricsGenerator:
     def _get_historical_var(self):
         df = pl.DataFrame(
             {
-                "timestamp": list(self.equity_history.keys()),
-                "equity": list(self.equity_history.values()),
+                "timestamp": list(self.general_equity_history.keys()),
+                "equity": list(self.general_equity_history.values()),
             }
         )
         df = df.with_columns(pl.col("timestamp").cast(pl.Datetime("ms")))
@@ -139,8 +142,8 @@ class MetricsGenerator:
         df = (
             pl.DataFrame(
                 {
-                    "timestamp": list(self.equity_history.keys()),
-                    "equity": list(self.equity_history.values()),
+                    "timestamp": list(self.general_equity_history.keys()),
+                    "equity": list(self.general_equity_history.values()),
                 }
             )
             .with_columns(pl.col("timestamp").cast(pl.Datetime("ms")))
@@ -168,8 +171,8 @@ class MetricsGenerator:
     def _get_sharpe_sortino_ratios(self):
         df = pl.DataFrame(
             {
-                "timestamp": list(self.equity_history.keys()),
-                "equity": list(self.equity_history.values()),
+                "timestamp": list(self.general_equity_history.keys()),
+                "equity": list(self.general_equity_history.values()),
             }
         )
         df = df.with_columns(pl.col("timestamp").cast(pl.Datetime("ms")))
@@ -211,8 +214,8 @@ class MetricsGenerator:
         return daily_volatility, annual_volatility
 
     def _get_annualized_return(self):
-        time_start = min(self.equity_history.keys())
-        time_end = max(self.equity_history.keys())
+        time_start = min(self.general_equity_history.keys())
+        time_end = max(self.general_equity_history.keys())
         years = (time_end - time_start) / (60 * 60 * 24 * 365 * 1000)
         annualized_return = (
             (self.final_balance / self.initial_balance) ** (1 / years) - 1
