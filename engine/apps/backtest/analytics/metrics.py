@@ -4,7 +4,6 @@ from sklearn.linear_model import LinearRegression
 
 # === Symbol metrics ===
 
-# Win Rate (%) (profitable trades ÷ total trades) >
 # Profit Factor (gross profit ÷ gross loss) >
 # Average Trade Return (%) >
 # Max Drawdown (%) (largest peak-to-trough loss) >
@@ -38,12 +37,15 @@ class MetricsGenerator:
     def generate_symbolwise_metrics(self):
         metrics = {}
 
-        # self.equity_history.pop("General", None)
+        self.equity_history.pop("General", None)
         for symbol, _ in self.equity_history.items():
             symbol_metrics = {}
 
             total_trades = self._get_total_trades(symbol=symbol)
             symbol_metrics.update({"Total trades": total_trades})
+
+            win_rate = self._get_winrate(symbol=symbol, total_trades=total_trades)
+            symbol_metrics.update({"Win Rate (%)": win_rate})
 
             metrics.update({symbol: symbol_metrics})
 
@@ -54,6 +56,13 @@ class MetricsGenerator:
         current_position_count = self.current_positions.filter(pl.col("symbol") == symbol).height
         return trade_history_count + current_position_count
 
+
+    def _get_winrate(self, symbol, total_trades):
+        profitable_positions = self.trade_history.filter(
+            (pl.col("symbol") == symbol) &
+            (pl.col("closed_by") == "TP")
+        ).height
+        return profitable_positions / total_trades * 100
 
 
     def generate_general_metrics(self):
