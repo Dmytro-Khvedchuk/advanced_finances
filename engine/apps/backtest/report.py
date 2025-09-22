@@ -19,7 +19,7 @@ class ReportGenerator:
             y_axis_label="PnL",
             x_axis_type="datetime",
             width=1600,
-            height=800
+            height=800,
         )
 
         colors = Category10[10]
@@ -29,15 +29,23 @@ class ReportGenerator:
             x, y = zip(*sorted_items)
 
             source = ColumnDataSource(data={"x": x, "y": y})
-            p.line("x", "y", source=source, line_width=2, color=colors[i % len(colors)], legend_label=symbol)
+            p.line(
+                "x",
+                "y",
+                source=source,
+                line_width=2,
+                color=colors[i % len(colors)],
+                legend_label=symbol,
+            )
 
         p.legend.location = "top_left"
-        p.legend.click_policy = "hide" 
-        p.xaxis.formatter = DatetimeTickFormatter(days="%d %b", months="%b %Y", years="%Y")
+        p.legend.click_policy = "hide"
+        p.xaxis.formatter = DatetimeTickFormatter(
+            days="%d %b", months="%b %Y", years="%Y"
+        )
         output_file("symbol_pnl.html")
 
         show(p)
-
 
     def generate_symbol_metrics(self):
         (

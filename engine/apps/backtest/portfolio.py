@@ -215,7 +215,9 @@ class Portfolio:
 
     def _calculate_symbol_pnl(self, symbol: str):
         symbol_data = self.current_positions.filter(pl.col("symbol") == symbol)
-        realized_total_pnl = self.trade_history.filter(pl.col("symbol") == symbol)['pnl'].sum()
+        realized_total_pnl = self.trade_history.filter(pl.col("symbol") == symbol)[
+            "pnl"
+        ].sum()
         unrealized_position_pnl = symbol_data["unrealized_pnl"].sum()
         realized_position_pnl = symbol_data["realized_pnl"].sum()
         return realized_position_pnl + unrealized_position_pnl + realized_total_pnl

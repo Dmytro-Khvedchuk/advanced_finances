@@ -31,7 +31,9 @@ class MetricsGenerator:
         self.order_history = order_history
         self.current_positions = current_positions
         self.initial_balance = initial_balance
-        self.final_balance = self.general_equity_history[list(self.general_equity_history.keys())[-1]]
+        self.final_balance = self.general_equity_history[
+            list(self.general_equity_history.keys())[-1]
+        ]
 
     def generate_general_metrics(self):
         metrics = {}
