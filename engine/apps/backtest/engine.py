@@ -5,6 +5,7 @@ from clickhouse_driver import Client
 from utils.global_variables.GLOBAL_VARIABLES import SYMBOL
 from utils.logger.logger import LoggerWrapper, log_execution
 from engine.core.strategies.strategy import Strategy
+from time import time
 
 import polars as pl
 
@@ -37,7 +38,10 @@ class BackTest:
     # === User Methods ===
     @log_execution
     def run(self):
+        start_time = time()
         self._iterate_through_candles()
+        end_time = time()
+        print(f"Backtest war running for {end_time - start_time:.3f} seconds")
 
     # === Helper Methods ===
     def _iterate_through_candles(self):
