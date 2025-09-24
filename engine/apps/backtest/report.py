@@ -72,7 +72,8 @@ class ReportGenerator:
             for title, value in symbol_metrics.items():
                 if isinstance(value, float):
                     print(f"{title}: {value:.2f}")
-                else: print(f"{title}: {value}")
+                else:
+                    print(f"{title}: {value}")
 
             print(" === END ===")
 
