@@ -47,21 +47,24 @@ class MetricsGenerator:
             )
             symbol_metrics.update({"Profit Factor": profit_factor})
 
-            max_drawdown_pct, max_drawdown = self._get_symbol_max_drawdown(symbol=symbol)
+            max_drawdown_pct, max_drawdown = self._get_symbol_max_drawdown(
+                symbol=symbol
+            )
             symbol_metrics.update({"Max Drawdown (%)": max_drawdown_pct})
             symbol_metrics.update({"Max Drawdown ($)": max_drawdown})
 
             average_trade_return = self._get_average_trade_return(symbol=symbol)
             symbol_metrics.update({"Average Trade Return (%)": average_trade_return})
 
-            commissions = self.trade_history.filter(pl.col("symbol") == symbol)["commissions"].sum()
+            commissions = self.trade_history.filter(pl.col("symbol") == symbol)[
+                "commissions"
+            ].sum()
             symbol_metrics.update({"Commission Cost": commissions})
 
             metrics.update({symbol: symbol_metrics})
 
         return metrics
 
-    
     def _get_average_trade_return(self, symbol):
         trade_history = self.trade_history.filter(pl.col("symbol") == symbol)
 
@@ -75,8 +78,11 @@ class MetricsGenerator:
         )
 
         trade_history = trade_history.with_columns(
-            ((pl.col("exit_price") - pl.col("entry_price")) / pl.col("entry_price") * 100)
-            .alias("return_pct")
+            (
+                (pl.col("exit_price") - pl.col("entry_price"))
+                / pl.col("entry_price")
+                * 100
+            ).alias("return_pct")
         )
 
         return float(trade_history["return_pct"].mean())
@@ -111,7 +117,6 @@ class MetricsGenerator:
             max_drawdown_row["max_drawdown_pct"][0],
             max_drawdown_row["max_drawdown_dollar"][0],
         )
-
 
     @staticmethod
     def _get_profit_factor(gross_profit, gross_loss):
@@ -225,7 +230,7 @@ class MetricsGenerator:
         metrics.update({"Commissions": commissions})
 
         return metrics
-    
+
     def _get_commissions(self):
         return self.trade_history["commissions"].sum()
 
