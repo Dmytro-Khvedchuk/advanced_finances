@@ -51,6 +51,7 @@ TRADE_HISTORY_SCHEMA = {
     "pnl": Float64,
     "volume": Float64,
     "direction": String,
+    "entry_price": Float64,
     "entry_time": Int64,
     "exit_time": Int64,
     "strategy": String,

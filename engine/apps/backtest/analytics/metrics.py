@@ -2,19 +2,6 @@ import numpy as np
 import polars as pl
 from sklearn.linear_model import LinearRegression
 
-# === Symbol metrics ===
-
-# Total Trades (count of executed trades) >
-# Win Rate (%) (profitable trades ÷ total trades) >
-# Profit Factor (gross profit ÷ gross loss) >
-# Average Trade Return (%) >
-# Max Drawdown (%) (largest peak-to-trough loss) >
-# Sharpe Ratio (risk-adjusted return) >
-# Sortino Ratio (downside risk-adjusted return) >
-# Exposure (%) (time in market vs. total backtest period) >
-# Commission & Slippage Costs (total deducted) >
-# Annualized Return (%) (CAGR for that symbol) >
-
 
 class MetricsGenerator:
     def __init__(
@@ -34,6 +21,162 @@ class MetricsGenerator:
         self.final_balance = self.general_equity_history[
             list(self.general_equity_history.keys())[-1]
         ]
+
+    def generate_symbolwise_metrics(self):
+        metrics = {}
+
+        self.equity_history.pop("General", None)
+        for symbol, _ in self.equity_history.items():
+            symbol_metrics = {}
+
+            total_trades = self._get_total_trades(symbol=symbol)
+            symbol_metrics.update({"Total trades": total_trades})
+
+            win_rate = self._get_winrate(symbol=symbol, total_trades=total_trades)
+            symbol_metrics.update({"Win Rate (%)": win_rate})
+
+            total_pnl = self._get_symbol_pnl(symbol=symbol)
+            symbol_metrics.update({"Total PnL": total_pnl})
+
+            gross_profit, gross_loss = self._get_gross_profit_loss(symbol=symbol)
+            symbol_metrics.update({"Gross Profit": gross_profit})
+            symbol_metrics.update({"Gross Loss": gross_loss})
+
+            profit_factor = self._get_profit_factor(
+                gross_profit=gross_profit, gross_loss=gross_loss
+            )
+            symbol_metrics.update({"Profit Factor": profit_factor})
+
+            max_drawdown_pct, max_drawdown = self._get_symbol_max_drawdown(
+                symbol=symbol
+            )
+            symbol_metrics.update({"Max Drawdown (%)": max_drawdown_pct})
+            symbol_metrics.update({"Max Drawdown ($)": max_drawdown})
+
+            average_trade_return = self._get_average_trade_return(symbol=symbol)
+            symbol_metrics.update({"Average Trade Return (%)": average_trade_return})
+
+            commissions = self.trade_history.filter(pl.col("symbol") == symbol)[
+                "commissions"
+            ].sum()
+            symbol_metrics.update({"Commission Cost": commissions})
+
+            metrics.update({symbol: symbol_metrics})
+
+        return metrics
+
+    def _get_average_trade_return(self, symbol):
+        trade_history = self.trade_history.filter(pl.col("symbol") == symbol)
+
+        trade_history = trade_history.with_columns(
+            pl.when(pl.col("closed_by") == "TP")
+            .then(pl.col("take_profit"))
+            .when(pl.col("closed_by") == "SL")
+            .then(pl.col("stop_loss"))
+            .otherwise(pl.lit(None))
+            .alias("exit_price")
+        )
+
+        trade_history = trade_history.with_columns(
+            (
+                (pl.col("exit_price") - pl.col("entry_price"))
+                / pl.col("entry_price")
+                * 100
+            ).alias("return_pct")
+        )
+
+        return float(trade_history["return_pct"].mean())
+
+    def _get_symbol_max_drawdown(self, symbol):
+        df = (
+            pl.DataFrame(
+                {
+                    "timestamp": list(self.equity_history[symbol].keys()),
+                    "pnl": list(self.equity_history[symbol].values()),
+                }
+            )
+            .with_columns(pl.col("timestamp").cast(pl.Datetime("ms")))
+            .sort("timestamp")
+        )
+
+        df = df.with_columns(pl.col("pnl").cum_max().alias("running_max"))
+        df = df.with_columns(
+            ((pl.col("pnl") - pl.col("running_max"))).alias("drawdown_dollar"),
+            (
+                (pl.col("pnl") - pl.col("running_max")) / pl.col("running_max") * 100
+            ).alias("drawdown_pct"),
+        )
+        max_drawdown_row = df.select(
+            [
+                pl.col("drawdown_pct").min().alias("max_drawdown_pct"),
+                pl.col("drawdown_dollar").min().alias("max_drawdown_dollar"),
+            ]
+        ).to_dict(as_series=False)
+
+        return (
+            max_drawdown_row["max_drawdown_pct"][0],
+            max_drawdown_row["max_drawdown_dollar"][0],
+        )
+
+    @staticmethod
+    def _get_profit_factor(gross_profit, gross_loss):
+        if gross_loss == 0:
+            return 0
+        return abs(gross_profit / gross_loss)
+
+    def _get_gross_profit_loss(self, symbol):
+        closed_trades_profit = self.trade_history.filter(
+            (pl.col("symbol") == symbol) & (pl.col("pnl") > 0)
+        )["pnl"].sum()
+        closed_trades_loss = self.trade_history.filter(
+            (pl.col("symbol") == symbol) & (pl.col("pnl") < 0)
+        )["pnl"].sum()
+        open_trades_profit = self.current_positions.filter(
+            (pl.col("symbol") == symbol) & (pl.col("realized_pnl") > 0)
+        )["realized_pnl"].sum()
+        open_trades_loss = self.current_positions.filter(
+            (pl.col("symbol") == symbol) & (pl.col("realized_pnl") < 0)
+        )["realized_pnl"].sum()
+
+        return (
+            closed_trades_profit + open_trades_profit,
+            closed_trades_loss + open_trades_loss,
+        )
+
+    def _get_symbol_pnl(self, symbol):
+        closed_trades_pnl = self.trade_history.filter(pl.col("symbol") == symbol)[
+            "pnl"
+        ].sum()
+        open_trades_realized_pnl = self.current_positions.filter(
+            pl.col("symbol") == symbol
+        )["realized_pnl"].sum()
+        open_trades_unrealized_pnl = self.current_positions.filter(
+            pl.col("symbol") == symbol
+        )["unrealized_pnl"].sum()
+        closed_trades_commissions = self.trade_history.filter(
+            pl.col("symbol") == symbol
+        )["commissions"].sum()
+        return (
+            closed_trades_pnl
+            + open_trades_realized_pnl
+            + open_trades_unrealized_pnl
+            - closed_trades_commissions
+        )
+
+    def _get_total_trades(self, symbol):
+        trade_history_count = self.trade_history.filter(
+            pl.col("symbol") == symbol
+        ).height
+        current_position_count = self.current_positions.filter(
+            pl.col("symbol") == symbol
+        ).height
+        return trade_history_count + current_position_count
+
+    def _get_winrate(self, symbol, total_trades):
+        profitable_positions = self.trade_history.filter(
+            (pl.col("symbol") == symbol) & (pl.col("closed_by") == "TP")
+        ).height
+        return profitable_positions / total_trades * 100
 
     def generate_general_metrics(self):
         metrics = {}
@@ -83,7 +226,13 @@ class MetricsGenerator:
         portfolio_turnover = self._get_portfolio_turnover()
         metrics.update({"Portfolio Turnover": portfolio_turnover})
 
+        commissions = self._get_commissions()
+        metrics.update({"Commissions": commissions})
+
         return metrics
+
+    def _get_commissions(self):
+        return self.trade_history["commissions"].sum()
 
     def _get_portfolio_turnover(self):
         df = self.trade_history.select(

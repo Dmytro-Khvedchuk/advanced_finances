@@ -122,13 +122,16 @@ class KlineDataManager:
         :type timeframe: str
         """
         interval_ms = TIMEFRAME_MAP[timeframe]
+        if isinstance(interval_ms, timedelta):
+            interval_ms = int(interval_ms.total_seconds() * 1000)
+
         for from_ts, to_ts in tqdm(fetch_dictionary.items(), desc="Fetching klines"):
             start = int(from_ts)
             to_ts = int(to_ts)
             while start <= to_ts:
                 data = DataFrame(
                     self.data_fetcher.fetch_historical_klines(
-                        timeframe=timeframe, start_str=start, end_str=to_ts
+                        timeframe=timeframe, start_str=str(start), end_str=str(to_ts)
                     ),
                     orient="row",
                     schema=KLINES_SCHEMA,
@@ -139,9 +142,6 @@ class KlineDataManager:
                 self.click_house_data_manager.klines.insert_klines(
                     df=data, symbol=self.symbol, timeframe=timeframe
                 )
-
-                if isinstance(interval_ms, timedelta):
-                    interval_ms = int(interval_ms.total_seconds() * 1000)
 
                 start = int(data["open_time"].max()) + interval_ms
 

@@ -117,6 +117,7 @@ class Portfolio:
             "pnl": pnl,
             "volume": position["volume"],
             "direction": position["direction"],
+            "entry_price": position["entry_price"],
             "entry_time": position["entry_time"],
             "exit_time": timestamp,
             "strategy": position["strategy"],

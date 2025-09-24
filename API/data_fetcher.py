@@ -97,11 +97,11 @@ class FetchData:
         :returns: Klines data in a raw List[str]
         """
         return self._fetch_with_retry(
-            self.client.get_klines,
+            self.client.get_historical_klines,
             symbol=self.symbol,
             interval=timeframe,
-            startTime=start_str,
-            endTime=end_str,
+            start_str=start_str,
+            end_str=end_str,
         )
 
     @log_execution

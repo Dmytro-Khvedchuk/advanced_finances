@@ -55,6 +55,28 @@ class ReportGenerator:
             current_positions,
             initial_balance,
         ) = self.portfolio.get_metrics()
+
+        metrics_generator = MetricsGenerator(
+            equity_history,
+            trade_history,
+            order_history,
+            current_positions,
+            initial_balance,
+        )
+
+        metrics = metrics_generator.generate_symbolwise_metrics()
+
+        for symbol, symbol_metrics in metrics.items():
+            print()
+            print(f" === {symbol} ===")
+            for title, value in symbol_metrics.items():
+                if isinstance(value, float):
+                    print(f"{title}: {value:.2f}")
+                else:
+                    print(f"{title}: {value}")
+
+            print(" === END ===")
+
         self._generate_symbol_pnl_chart(equity_history=equity_history)
 
     def generate_general_metrics(self):
