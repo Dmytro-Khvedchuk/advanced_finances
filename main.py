@@ -71,6 +71,7 @@ def main():
     backtest_engine = BackTest(
         data=data,
         strategy=strategy,
+        portfolio_manager=mdm.portfolio_manager,
         log_level=log_level,
         initial_balance=initial_balance,
         leverage=leverage,

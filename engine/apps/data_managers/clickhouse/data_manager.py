@@ -5,6 +5,9 @@ from engine.apps.data_managers.clickhouse.managers.klines_manager import (
 from engine.apps.data_managers.clickhouse.managers.trades_manager import (
     ClickHouseTradesManager,
 )
+from engine.apps.data_managers.clickhouse.managers.portfolio_manager import (
+    ClickHousePortfolioManager,
+)
 from utils.logger.logger import LoggerWrapper
 
 
@@ -16,3 +19,4 @@ class ClickHouseDataManager:
         )
         self.klines = ClickHouseKlinesManager(client=client, log_level=log_level)
         self.trades = ClickHouseTradesManager(client=client, log_level=log_level)
+        self.portfolio_manager = ClickHousePortfolioManager(client=client, log_level=log_level)

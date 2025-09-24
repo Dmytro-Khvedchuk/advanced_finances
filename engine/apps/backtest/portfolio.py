@@ -1,17 +1,16 @@
 from utils.logger.logger import LoggerWrapper, log_execution
 import polars as pl
+from engine.apps.data_managers.managers.portfolio_manager import PortfolioDataManager
 from utils.global_variables.SCHEMAS import (
     TRADE_HISTORY_SCHEMA,
     ORDER_HISTORY_SCHEMA,
     POSITIONS_SCHEMA,
 )
-
 from collections import defaultdict
 
 
 class Portfolio:
-    def __init__(self, initial_balance, leverage, maker_fee, taker_fee, log_level):
-        # variables
+    def __init__(self, portfolio_manager: PortfolioDataManager, initial_balance, leverage, maker_fee, taker_fee, log_level):
         self.trade_history = pl.DataFrame(schema=TRADE_HISTORY_SCHEMA, orient="row")
         self.order_history = pl.DataFrame(schema=ORDER_HISTORY_SCHEMA, orient="row")
         self.current_positions = pl.DataFrame(schema=POSITIONS_SCHEMA, orient="row")
@@ -19,16 +18,14 @@ class Portfolio:
         self.equity = initial_balance
         self.equity_history = defaultdict(dict)
 
-        # parameters
+        self.clickhouse_portfolio_manager = portfolio_manager
+
         self.leverage = leverage
         self.initial_capital = initial_balance
         self.maker_fee = maker_fee
         self.taker_fee = taker_fee
 
         self.logger = LoggerWrapper(name="Portfolio Module", level=log_level)
-
-    # Here should be method that will allow or disallow for orders
-    # Also it should have something like liquidation chech for each candles
 
     def get_metrics(self):
         return (

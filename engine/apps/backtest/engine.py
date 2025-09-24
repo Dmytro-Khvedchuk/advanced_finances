@@ -1,4 +1,5 @@
 from engine.apps.backtest.portfolio import Portfolio
+from engine.apps.data_managers.managers.portfolio_manager import PortfolioDataManager
 from engine.apps.backtest.execution_handler import ExecutionHandler
 from engine.apps.backtest.report import ReportGenerator
 from clickhouse_driver import Client
@@ -15,6 +16,7 @@ class BackTest:
         self,
         data: dict[str, pl.DataFrame],
         strategy: Strategy,
+        portfolio_manager: PortfolioDataManager,
         log_level: int = 10,
         initial_balance: int = 10000,
         leverage: int = 1,
@@ -26,6 +28,7 @@ class BackTest:
         self.data = data
 
         self.portfolio = Portfolio(
+            portfolio_manager=portfolio_manager,
             initial_balance=initial_balance,
             leverage=leverage,
             maker_fee=maker_fee,

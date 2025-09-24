@@ -4,6 +4,7 @@ from clickhouse_driver import Client as DBClient
 from engine.apps.data_managers.clickhouse.data_manager import ClickHouseDataManager
 from engine.apps.data_managers.managers.klines_manager import KlineDataManager
 from engine.apps.data_managers.managers.trades_manager import TradeDataManager
+from engine.apps.data_managers.managers.portfolio_manager import PortfolioDataManager
 from utils.global_variables.GLOBAL_VARIABLES import (
     SYMBOL,
 )
@@ -35,6 +36,10 @@ class MarketDataManager:
             database_client=database_client,
             data_fetcher=self.data_fetcher,
             symbol=symbol,
+            log_level=log_level,
+        )
+        self.portfolio_manager = PortfolioDataManager(
+            client=database_client, 
             log_level=log_level,
         )
 
