@@ -1,13 +1,12 @@
 from binance.client import Client as BinanceClient
 from dotenv import load_dotenv
 from engine.apps.backtest.engine import BackTest
-from engine.apps.data_managers.market_data_manager import MarketDataManager
 from engine.apps.data_managers.clickhouse.client import get_clickhouse_client
+from engine.apps.data_managers.market_data_manager import MarketDataManager
+from engine.core.strategies.ta_strategies.RSI_strategy import RSIStrategy
 from os import getenv
 from utils.charts.chart import Chart
 from utils.global_variables.GLOBAL_VARIABLES import LEVEL_MAP, SYMBOL
-
-from engine.core.strategies.ta_strategies.RSI_strategy import RSIStrategy
 
 
 def pick_log_level():
@@ -50,7 +49,7 @@ def main():
         "AVAXUSDT",
     ]
     timeframe = "1h"
-    start_date = "Aug 30 2021"
+    start_date = "Aug 10 2025"
     end_date = "Aug 30 2025"
     initial_balance = 10000.0
     leverage = 4

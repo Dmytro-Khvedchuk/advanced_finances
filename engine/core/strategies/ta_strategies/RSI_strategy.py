@@ -1,8 +1,8 @@
 from engine.core.strategies.strategy import Strategy
-import polars as pl
-import ta
+from polars import concat, DataFrame, Series
+from ta import momentum
 from utils.global_variables.SCHEMAS import ORDER_HISTORY_SCHEMA
-from utils.logger.logger import LoggerWrapper, log_execution
+from utils.logger.logger import LoggerWrapper
 
 
 class RSIStrategy(Strategy):
@@ -15,7 +15,7 @@ class RSIStrategy(Strategy):
         self.move = move
         self.strategy_name = "RSI Continuation Strategy"
 
-    def generate_order(self, symbol: str, new_series: pl.Series):
+    def generate_order(self, symbol: str, new_series: Series):
         self._update_data(symbol=symbol, new_series=new_series)
         order = self._process_signal(symbol)
         return order
@@ -42,7 +42,7 @@ class RSIStrategy(Strategy):
                 "take_profit": take_profit,
                 "stop_loss": stop_loss,
             }
-            order = pl.DataFrame(order_info, schema=ORDER_HISTORY_SCHEMA)
+            order = DataFrame(order_info, schema=ORDER_HISTORY_SCHEMA)
 
         if last_rsi < 15.0:
             take_profit = data["close"] - data["close"] * self.move
@@ -60,27 +60,27 @@ class RSIStrategy(Strategy):
                 "take_profit": take_profit,
                 "stop_loss": stop_loss,
             }
-            order = pl.DataFrame(order_info, schema=ORDER_HISTORY_SCHEMA)
+            order = DataFrame(order_info, schema=ORDER_HISTORY_SCHEMA)
 
         return order
 
-    def _update_data(self, symbol: str, new_series: pl.Series):
+    def _update_data(self, symbol: str, new_series: Series):
         if symbol not in self.data.keys():
-            new_df = pl.DataFrame(new_series)
+            new_df = DataFrame(new_series)
             self.data.update({symbol: new_df})
         else:
             df = self.data[symbol]
             df = df.tail(self.candles_for_signal + self.candles_for_indicators - 1)
             if "rsi" in df.columns:
                 df = df.drop("rsi")
-            new_df = pl.concat([df, new_series])
+            new_df = concat([df, new_series])
             if new_df.height == self.candles_for_signal + self.candles_for_indicators:
                 new_df = self._calculate_rsi(symbol, new_df)
             self.data.update({symbol: new_df})
 
-    def _calculate_rsi(self, symbol: str, df: pl.DataFrame):
+    def _calculate_rsi(self, symbol: str, df: DataFrame):
         close_pd = df["close"].to_pandas()
-        rsi = ta.momentum.RSIIndicator(
+        rsi = momentum.RSIIndicator(
             close=close_pd, window=self.candles_for_indicators
         ).rsi()
-        return df.with_columns(pl.Series("rsi", rsi.values))
+        return df.with_columns(Series("rsi", rsi.values))

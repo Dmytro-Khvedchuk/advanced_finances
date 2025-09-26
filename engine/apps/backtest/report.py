@@ -4,7 +4,17 @@ from bokeh.models import ColumnDataSource, DatetimeTickFormatter
 from copy import deepcopy
 from engine.apps.backtest.analytics.metrics import MetricsGenerator
 from io import BytesIO
-from matplotlib.pyplot import close, cm, figure, legend, plot, savefig, title, xlabel, ylabel
+from matplotlib.pyplot import (
+    close,
+    cm,
+    figure,
+    legend,
+    plot,
+    savefig,
+    title,
+    xlabel,
+    ylabel,
+)
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
