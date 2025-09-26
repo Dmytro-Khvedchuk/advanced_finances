@@ -32,10 +32,11 @@ class BackTest:
             taker_fee=taker_fee,
             log_level=log_level,
         )
-        self.execution_handler = ExecutionHandler(self.portfolio, strategy)
-        self.report_generator = ReportGenerator(self.portfolio)
+        self.execution_handler = ExecutionHandler(
+            portfolio=self.portfolio, strategy=strategy, log_level=log_level
+        )
+        self.report_generator = ReportGenerator(self.portfolio, log_level=log_level)
 
-    # === User Methods ===
     @log_execution
     def run(self):
         start_time = time()
@@ -43,7 +44,7 @@ class BackTest:
         end_time = time()
         print(f"Backtest war running for {end_time - start_time:.3f} seconds")
 
-    # === Helper Methods ===
+    @log_execution
     def _iterate_through_candles(self):
         df = next(iter(self.data.values()))
 

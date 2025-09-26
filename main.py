@@ -57,7 +57,7 @@ def main():
     leverage = 4
     maker_fee = 0.0002
     taker_fee = 0.0004
-    strategy = RSIStrategy()
+    strategy = RSIStrategy(log_level=log_level)
 
     data = {}
 

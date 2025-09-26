@@ -1,6 +1,7 @@
 import numpy as np
 import polars as pl
 from sklearn.linear_model import LinearRegression
+from utils.logger.logger import LoggerWrapper, log_execution
 
 
 class MetricsGenerator:
@@ -11,7 +12,10 @@ class MetricsGenerator:
         order_history,
         current_positions,
         initial_balance,
+        log_level,
     ):
+        self.logger = LoggerWrapper(name="Metrics Generator Module", level=log_level)
+
         self.equity_history = equity_history
         self.general_equity_history = self.equity_history["General"]
         self.trade_history = trade_history
@@ -22,6 +26,7 @@ class MetricsGenerator:
             list(self.general_equity_history.keys())[-1]
         ]
 
+    @log_execution
     def generate_symbolwise_metrics(self):
         metrics = {}
 
@@ -65,6 +70,7 @@ class MetricsGenerator:
 
         return metrics
 
+    @log_execution
     def _get_average_trade_return(self, symbol):
         trade_history = self.trade_history.filter(pl.col("symbol") == symbol)
 
@@ -87,6 +93,7 @@ class MetricsGenerator:
 
         return float(trade_history["return_pct"].mean())
 
+    @log_execution
     def _get_symbol_max_drawdown(self, symbol):
         df = (
             pl.DataFrame(
@@ -118,12 +125,14 @@ class MetricsGenerator:
             max_drawdown_row["max_drawdown_dollar"][0],
         )
 
+    @log_execution
     @staticmethod
     def _get_profit_factor(gross_profit, gross_loss):
         if gross_loss == 0:
             return 0
         return abs(gross_profit / gross_loss)
 
+    @log_execution
     def _get_gross_profit_loss(self, symbol):
         closed_trades_profit = self.trade_history.filter(
             (pl.col("symbol") == symbol) & (pl.col("pnl") > 0)
@@ -143,6 +152,7 @@ class MetricsGenerator:
             closed_trades_loss + open_trades_loss,
         )
 
+    @log_execution
     def _get_symbol_pnl(self, symbol):
         closed_trades_pnl = self.trade_history.filter(pl.col("symbol") == symbol)[
             "pnl"
@@ -163,6 +173,7 @@ class MetricsGenerator:
             - closed_trades_commissions
         )
 
+    @log_execution
     def _get_total_trades(self, symbol):
         trade_history_count = self.trade_history.filter(
             pl.col("symbol") == symbol
@@ -172,30 +183,28 @@ class MetricsGenerator:
         ).height
         return trade_history_count + current_position_count
 
+    @log_execution
     def _get_winrate(self, symbol, total_trades):
         profitable_positions = self.trade_history.filter(
             (pl.col("symbol") == symbol) & (pl.col("closed_by") == "TP")
         ).height
         return profitable_positions / total_trades * 100
 
+    @log_execution
     def generate_general_metrics(self):
         metrics = {}
 
-        # Total Net Profit
         net_profit, net_profit_pct = self._get_total_net_profit()
         metrics.update({"Total Net Profit ($)": net_profit})
         metrics.update({"Total Net Profit (%)": net_profit_pct})
 
-        # Annualized Return
         annualized_return = self._get_annualized_return()
         metrics.update({"Annualized Return (CAGR) (%)": annualized_return})
 
-        # Volatility
         daily_volatility, annual_volatility = self._get_volatility()
         metrics.update({"Volatility 1D": daily_volatility})
         metrics.update({"Volatility 1Y": annual_volatility})
 
-        # Sharpe Ratio
         (
             monthly_sharpe_ratio,
             annual_sharpe_ratio,
@@ -207,16 +216,13 @@ class MetricsGenerator:
         metrics.update({"Sortino Ratio 1M": monthly_sortino_ratio})
         metrics.update({"Sortino Ratio 1Y": annual_sortino_ratio})
 
-        # Max Drawdown
         max_drawdown_pct, max_drwadown_volume = self._get_max_drawdown()
         metrics.update({"Max Drawdown (%)": max_drawdown_pct})
         metrics.update({"Max Drawdown ($)": max_drwadown_volume})
 
-        # Calmar Ratio
         calmar_ratio = annualized_return / max_drawdown_pct
         metrics.update({"Calmar Ratio": calmar_ratio})
 
-        # Value at Risk
         var_95 = self._get_historical_var()
         metrics.update({"Value At Risk 95% (%)": var_95})
 
@@ -231,9 +237,11 @@ class MetricsGenerator:
 
         return metrics
 
+    @log_execution
     def _get_commissions(self):
         return self.trade_history["commissions"].sum()
 
+    @log_execution
     def _get_portfolio_turnover(self):
         df = self.trade_history.select(
             [
@@ -251,6 +259,7 @@ class MetricsGenerator:
         turnover_pct = (total_traded / avg_portfolio_value) * 100
         return turnover_pct
 
+    @log_execution
     def _get_equity_curve_stability(self):
         df = pl.DataFrame(
             {
@@ -268,6 +277,7 @@ class MetricsGenerator:
 
         return r_squared
 
+    @log_execution
     def _get_historical_var(self):
         df = pl.DataFrame(
             {
@@ -287,6 +297,7 @@ class MetricsGenerator:
         var = np.percentile(returns, var_percentile)
         return var
 
+    @log_execution
     def _get_max_drawdown(self):
         df = (
             pl.DataFrame(
@@ -317,6 +328,7 @@ class MetricsGenerator:
             max_drawdown_row["max_drawdown_dollar"][0],
         )
 
+    @log_execution
     def _get_sharpe_sortino_ratios(self):
         df = pl.DataFrame(
             {
@@ -342,6 +354,7 @@ class MetricsGenerator:
 
         return monthly_sharpe, annualized_sharpe, monthly_sortino, annualized_sortino
 
+    @log_execution
     def _get_sortino_ratio(self, returns):
         returns = np.array(returns)
         excess_returns = returns - 0 / 12
@@ -355,6 +368,7 @@ class MetricsGenerator:
 
         return sortino, annualized_sortino
 
+    @log_execution
     def _get_volatility(self):
         returns = self.trade_history["pnl"].to_numpy()
         daily_volatility = np.std(returns, ddof=1)
@@ -362,6 +376,7 @@ class MetricsGenerator:
 
         return daily_volatility, annual_volatility
 
+    @log_execution
     def _get_annualized_return(self):
         time_start = min(self.general_equity_history.keys())
         time_end = max(self.general_equity_history.keys())
@@ -372,6 +387,7 @@ class MetricsGenerator:
 
         return annualized_return
 
+    @log_execution
     def _get_total_net_profit(self):
         net_profit = self.final_balance - self.initial_balance
         net_profit_pct = net_profit / self.initial_balance * 100
