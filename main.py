@@ -9,9 +9,6 @@ from utils.global_variables.GLOBAL_VARIABLES import LEVEL_MAP, SYMBOL
 
 from engine.core.strategies.ta_strategies.RSI_strategy import RSIStrategy
 
-import cProfile
-import pstats
-
 
 def pick_log_level():
     """Function for picking log level"""
@@ -30,7 +27,6 @@ def main():
     log_level = pick_log_level()
     load_dotenv()
 
-    chart = Chart()
     binance_client = BinanceClient(
         api_key=getenv("BINANCE_API_KEY"), api_secret=getenv("BINANCE_API_SECRET")
     )
@@ -54,7 +50,7 @@ def main():
         "AVAXUSDT",
     ]
     timeframe = "1h"
-    start_date = "Aug 10 2025"
+    start_date = "Aug 30 2021"
     end_date = "Aug 30 2025"
     initial_balance = 10000.0
     leverage = 4
@@ -83,14 +79,8 @@ def main():
 
     backtest_engine.run()
 
-    backtest_engine.generate_report()
+    backtest_engine.generate_report(pdf=True, file_name="RSI Strategy Report.pdf")
 
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    profiler.enable()
     main()
-    profiler.disable()
-    profiler.dump_stats("profile_output.prof")
-    p = pstats.Stats("profile_output.prof")
-    p.strip_dirs().sort_stats("cumulative").print_stats(50)
