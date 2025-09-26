@@ -1,7 +1,7 @@
 from engine.apps.backtest.portfolio import Portfolio
-import polars as pl
 from engine.core.strategies.strategy import Strategy
-from utils.logger.logger import LoggerWrapper, log_execution
+from polars import Series
+from utils.logger.logger import LoggerWrapper
 
 
 class ExecutionHandler:
@@ -11,13 +11,13 @@ class ExecutionHandler:
         self.strategy = strategy
         pass
 
-    def process_orders(self, symbol: str, series: pl.Series):
+    def process_orders(self, symbol: str, series: Series):
         order = self._check_for_orders(symbol=symbol, series=series)
         if order is not None:
             self.portfolio.update_orders(order=order)
         self.portfolio.update_positions(symbol=symbol, series=series)
 
-    def _check_for_orders(self, symbol: str, series: pl.Series):
+    def _check_for_orders(self, symbol: str, series: Series):
         order = self.strategy.generate_order(symbol=symbol, new_series=series)
         if order is None:
             return None

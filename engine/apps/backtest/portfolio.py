@@ -1,21 +1,20 @@
-from utils.logger.logger import LoggerWrapper, log_execution
-import polars as pl
+from collections import defaultdict
+from polars import col, concat, DataFrame, lit, when
 from utils.global_variables.SCHEMAS import (
     TRADE_HISTORY_SCHEMA,
     ORDER_HISTORY_SCHEMA,
     POSITIONS_SCHEMA,
 )
-
-from collections import defaultdict
+from utils.logger.logger import LoggerWrapper
 
 
 class Portfolio:
     def __init__(self, initial_balance, leverage, maker_fee, taker_fee, log_level):
         self.logger = LoggerWrapper(name="Portfolio Module", level=log_level)
 
-        self.trade_history = pl.DataFrame(schema=TRADE_HISTORY_SCHEMA, orient="row")
-        self.order_history = pl.DataFrame(schema=ORDER_HISTORY_SCHEMA, orient="row")
-        self.current_positions = pl.DataFrame(schema=POSITIONS_SCHEMA, orient="row")
+        self.trade_history = DataFrame(schema=TRADE_HISTORY_SCHEMA, orient="row")
+        self.order_history = DataFrame(schema=ORDER_HISTORY_SCHEMA, orient="row")
+        self.current_positions = DataFrame(schema=POSITIONS_SCHEMA, orient="row")
         self.order_id = 0
         self.equity = initial_balance
         self.equity_history = defaultdict(dict)
@@ -35,15 +34,15 @@ class Portfolio:
         )
 
     def update_orders(self, order):
-        order = pl.DataFrame(schema=ORDER_HISTORY_SCHEMA, data=order)
-        order = order.with_columns(pl.lit(self.order_id).alias("order_id"))
+        order = DataFrame(schema=ORDER_HISTORY_SCHEMA, data=order)
+        order = order.with_columns(lit(self.order_id).alias("order_id"))
         self.order_id += 1
         order = order.cast(self.order_history.schema)
-        self.order_history = pl.concat([self.order_history, order])
+        self.order_history = concat([self.order_history, order])
 
     def update_positions(self, symbol, series):
         orders_to_be_executed = self.order_history.filter(
-            (pl.col("status") == "PENDING") & (pl.col("symbol") == symbol)
+            (col("status") == "PENDING") & (col("symbol") == symbol)
         )
         if not orders_to_be_executed.is_empty():
             self._execute_orders(orders_to_be_executed, series)
@@ -71,19 +70,19 @@ class Portfolio:
                 continue
             self.equity -= position["volume"] / self.leverage
 
-            new_position = pl.DataFrame(position).cast(self.current_positions.schema)
-            self.current_positions = pl.concat([self.current_positions, new_position])
+            new_position = DataFrame(position).cast(self.current_positions.schema)
+            self.current_positions = concat([self.current_positions, new_position])
 
             self.order_history = self.order_history.with_columns(
-                pl.when(pl.col("order_id") == order["order_id"])
-                .then(pl.lit("FILLED"))
-                .otherwise(pl.col("status"))
+                when(col("order_id") == order["order_id"])
+                .then(lit("FILLED"))
+                .otherwise(col("status"))
                 .alias("status")
             )
 
     def _record_trade(self, position, closed_by, timestamp):
         self.current_positions = self.current_positions.filter(
-            pl.col("order_id") != position["order_id"]
+            col("order_id") != position["order_id"]
         )
 
         pnl = 0
@@ -123,11 +122,11 @@ class Portfolio:
             "commissions": commissions,
         }
 
-        trade_df = pl.DataFrame(schema=TRADE_HISTORY_SCHEMA, data=trade, orient="row")
+        trade_df = DataFrame(schema=TRADE_HISTORY_SCHEMA, data=trade, orient="row")
 
         self.equity += (position["volume"] / self.leverage) + pnl - commissions
 
-        self.trade_history = pl.concat([self.trade_history, trade_df])
+        self.trade_history = concat([self.trade_history, trade_df])
 
     def _update_positions_stats(self, symbol, series):
         high = series["high"][-1]
@@ -135,7 +134,7 @@ class Portfolio:
         close = series["close"][-1]
         timestamp = series["open_time"][-1]
 
-        positions_by_symbol = self.current_positions.filter(pl.col("symbol") == symbol)
+        positions_by_symbol = self.current_positions.filter(col("symbol") == symbol)
 
         for position in positions_by_symbol.to_dicts():
             if position["direction"] == "BUY" and symbol == position["symbol"]:
@@ -152,7 +151,7 @@ class Portfolio:
                     )
                 else:
                     self.current_positions = self.current_positions.filter(
-                        pl.col("order_id") != position["order_id"]
+                        col("order_id") != position["order_id"]
                     )
                     position["unrealized_pnl"] = self._calculate_pnl(
                         entry_price=position["entry_price"],
@@ -160,10 +159,10 @@ class Portfolio:
                         volume=position["volume"],
                         direction=position["direction"],
                     )
-                    self.current_positions = pl.concat(
+                    self.current_positions = concat(
                         [
                             self.current_positions,
-                            pl.DataFrame(data=position, schema=POSITIONS_SCHEMA),
+                            DataFrame(data=position, schema=POSITIONS_SCHEMA),
                         ]
                     )
 
@@ -182,7 +181,7 @@ class Portfolio:
 
                 else:
                     self.current_positions = self.current_positions.filter(
-                        pl.col("order_id") != position["order_id"]
+                        col("order_id") != position["order_id"]
                     )
                     position["unrealized_pnl"] = self._calculate_pnl(
                         entry_price=position["entry_price"],
@@ -191,10 +190,10 @@ class Portfolio:
                         direction=position["direction"],
                     )
 
-                    self.current_positions = pl.concat(
+                    self.current_positions = concat(
                         [
                             self.current_positions,
-                            pl.DataFrame(data=position, schema=POSITIONS_SCHEMA),
+                            DataFrame(data=position, schema=POSITIONS_SCHEMA),
                         ]
                     )
 
@@ -210,8 +209,8 @@ class Portfolio:
         self.equity_history["General"].update({timestamp: total})
 
     def _calculate_symbol_pnl(self, symbol: str):
-        symbol_data = self.current_positions.filter(pl.col("symbol") == symbol)
-        realized_total_pnl = self.trade_history.filter(pl.col("symbol") == symbol)[
+        symbol_data = self.current_positions.filter(col("symbol") == symbol)
+        realized_total_pnl = self.trade_history.filter(col("symbol") == symbol)[
             "pnl"
         ].sum()
         unrealized_position_pnl = symbol_data["unrealized_pnl"].sum()
