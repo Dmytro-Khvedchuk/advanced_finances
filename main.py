@@ -50,7 +50,7 @@ def main():
         "AVAXUSDT",
     ]
     timeframe = "1h"
-    start_date = "Aug 10 2025"
+    start_date = "Aug 30 2021"
     end_date = "Aug 30 2025"
     initial_balance = 10000.0
     leverage = 4
