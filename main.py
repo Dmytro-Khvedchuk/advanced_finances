@@ -12,6 +12,7 @@ from engine.core.strategies.ta_strategies.RSI_strategy import RSIStrategy
 import cProfile
 import pstats
 
+
 def pick_log_level():
     """Function for picking log level"""
     while True:
