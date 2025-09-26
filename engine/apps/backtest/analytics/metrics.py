@@ -3,6 +3,7 @@ import polars as pl
 from sklearn.linear_model import LinearRegression
 from utils.logger.logger import LoggerWrapper, log_execution
 
+from copy import deepcopy
 
 class MetricsGenerator:
     def __init__(
@@ -17,6 +18,7 @@ class MetricsGenerator:
         self.logger = LoggerWrapper(name="Metrics Generator Module", level=log_level)
 
         self.equity_history = equity_history
+        self.equity_history_copy = deepcopy(self.equity_history)
         self.general_equity_history = self.equity_history["General"]
         self.trade_history = trade_history
         self.order_history = order_history
@@ -30,8 +32,8 @@ class MetricsGenerator:
     def generate_symbolwise_metrics(self):
         metrics = {}
 
-        self.equity_history.pop("General", None)
-        for symbol, _ in self.equity_history.items():
+        self.equity_history_copy.pop("General", None)
+        for symbol, _ in self.equity_history_copy.items():
             symbol_metrics = {}
 
             total_trades = self._get_total_trades(symbol=symbol)
@@ -96,8 +98,8 @@ class MetricsGenerator:
         df = (
             pl.DataFrame(
                 {
-                    "timestamp": list(self.equity_history[symbol].keys()),
-                    "pnl": list(self.equity_history[symbol].values()),
+                    "timestamp": list(self.equity_history_copy[symbol].keys()),
+                    "pnl": list(self.equity_history_copy[symbol].values()),
                 }
             )
             .with_columns(pl.col("timestamp").cast(pl.Datetime("ms")))

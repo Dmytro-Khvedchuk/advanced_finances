@@ -36,6 +36,7 @@ class BackTest:
             portfolio=self.portfolio, strategy=strategy, log_level=log_level
         )
         self.report_generator = ReportGenerator(self.portfolio, log_level=log_level)
+        self.strategy_name = strategy.__class__.__name__
 
     @log_execution
     def run(self):
@@ -55,9 +56,11 @@ class BackTest:
                 self._process_orders(symbol, series)
 
     @log_execution
-    def generate_report(self):
+    def generate_report(self, pdf: bool = False, file_name: str = "strategy_report.pdf"):
         self.report_generator.generate_general_metrics()
         self.report_generator.generate_symbol_metrics()
+        if pdf:
+            self.report_generator.generate_pdf_report(strategy_name=self.strategy_name, output_file_path=file_name)
 
     @log_execution
     def _process_orders(self, symbol: str, series: pl.Series):
