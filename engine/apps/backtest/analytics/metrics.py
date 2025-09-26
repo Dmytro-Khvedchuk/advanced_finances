@@ -5,6 +5,7 @@ from utils.logger.logger import LoggerWrapper, log_execution
 
 from copy import deepcopy
 
+
 class MetricsGenerator:
     def __init__(
         self,

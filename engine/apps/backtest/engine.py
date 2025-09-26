@@ -56,11 +56,15 @@ class BackTest:
                 self._process_orders(symbol, series)
 
     @log_execution
-    def generate_report(self, pdf: bool = False, file_name: str = "strategy_report.pdf"):
+    def generate_report(
+        self, pdf: bool = False, file_name: str = "strategy_report.pdf"
+    ):
         self.report_generator.generate_general_metrics()
         self.report_generator.generate_symbol_metrics()
         if pdf:
-            self.report_generator.generate_pdf_report(strategy_name=self.strategy_name, output_file_path=file_name)
+            self.report_generator.generate_pdf_report(
+                strategy_name=self.strategy_name, output_file_path=file_name
+            )
 
     @log_execution
     def _process_orders(self, symbol: str, series: pl.Series):

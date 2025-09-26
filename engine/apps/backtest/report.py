@@ -155,7 +155,9 @@ class ReportGenerator:
 
         show(p)
 
-    def generate_pdf_report(self, strategy_name: str, output_file_path="strategy_report.pdf"):
+    def generate_pdf_report(
+        self, strategy_name: str, output_file_path="strategy_report.pdf"
+    ):
         print("🚀 Starting PDF report generation")
 
         # --------------------------
@@ -207,7 +209,13 @@ class ReportGenerator:
                 plt.figure(figsize=(16, 8))
                 for i, (symbol, data) in enumerate(symbol_data.items()):
                     x_sym, y_sym = zip(*sorted(data.items()))
-                    plt.plot(x_sym, y_sym, color=colors[i % len(colors)], label=symbol, linewidth=2)
+                    plt.plot(
+                        x_sym,
+                        y_sym,
+                        color=colors[i % len(colors)],
+                        label=symbol,
+                        linewidth=2,
+                    )
                 plt.title("Symbol-wise PnL")
                 plt.xlabel("Time")
                 plt.ylabel("PnL")
@@ -225,8 +233,12 @@ class ReportGenerator:
         # 2. Identify best/worst performers
         # --------------------------
         try:
-            best_pnl = max(symbol_metrics.items(), key=lambda x: x[1].get("Total PnL", 0))
-            worst_pnl = min(symbol_metrics.items(), key=lambda x: x[1].get("Total PnL", 0))
+            best_pnl = max(
+                symbol_metrics.items(), key=lambda x: x[1].get("Total PnL", 0)
+            )
+            worst_pnl = min(
+                symbol_metrics.items(), key=lambda x: x[1].get("Total PnL", 0)
+            )
             print("✅ Best/Worst performers identified")
         except Exception as e:
             print(f"⚠️ Failed to calculate best/worst performers: {e}")
@@ -267,9 +279,10 @@ class ReportGenerator:
         # Best/Worst performers
         c.setFont("Helvetica-Bold", 14)
         c.drawString(
-            50, y_pos,
+            50,
+            y_pos,
             f"Best PnL: {best_pnl[0]} ({best_pnl[1].get('Total PnL', 0):.2f}) | "
-            f"Worst PnL: {worst_pnl[0]} ({worst_pnl[1].get('Total PnL', 0):.2f})"
+            f"Worst PnL: {worst_pnl[0]} ({worst_pnl[1].get('Total PnL', 0):.2f})",
         )
 
         c.showPage()  # ------------------- Page 2: Charts -------------------
