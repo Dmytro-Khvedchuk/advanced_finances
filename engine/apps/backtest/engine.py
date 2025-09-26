@@ -1,19 +1,16 @@
-from engine.apps.backtest.portfolio import Portfolio
 from engine.apps.backtest.execution_handler import ExecutionHandler
+from engine.apps.backtest.portfolio import Portfolio
 from engine.apps.backtest.report import ReportGenerator
-from clickhouse_driver import Client
-from utils.global_variables.GLOBAL_VARIABLES import SYMBOL
-from utils.logger.logger import LoggerWrapper, log_execution
 from engine.core.strategies.strategy import Strategy
+from polars import DataFrame, Series, col
 from time import time
-
-import polars as pl
+from utils.logger.logger import LoggerWrapper, log_execution
 
 
 class BackTest:
     def __init__(
         self,
-        data: dict[str, pl.DataFrame],
+        data: dict[str, DataFrame],
         strategy: Strategy,
         log_level: int = 10,
         initial_balance: int = 10000,
@@ -52,7 +49,7 @@ class BackTest:
         open_time_values = df["open_time"].to_list()
         for timestamp in open_time_values:
             for symbol, df in self.data.items():
-                series = df.filter(pl.col("open_time") == timestamp)
+                series = df.filter(col("open_time") == timestamp)
                 self._process_orders(symbol, series)
 
     @log_execution
@@ -67,5 +64,5 @@ class BackTest:
             )
 
     @log_execution
-    def _process_orders(self, symbol: str, series: pl.Series):
+    def _process_orders(self, symbol: str, series: Series):
         self.execution_handler.process_orders(symbol, series)

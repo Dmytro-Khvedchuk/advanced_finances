@@ -1,9 +1,8 @@
-import numpy as np
-import polars as pl
+from copy import deepcopy
+from numpy import array, asarray, mean, nan, percentile, sqrt, std
+from polars import col, DataFrame, Datetime, lit, when
 from sklearn.linear_model import LinearRegression
 from utils.logger.logger import LoggerWrapper, log_execution
-
-from copy import deepcopy
 
 
 class MetricsGenerator:
@@ -64,7 +63,7 @@ class MetricsGenerator:
             average_trade_return = self._get_average_trade_return(symbol=symbol)
             symbol_metrics.update({"Average Trade Return (%)": average_trade_return})
 
-            commissions = self.trade_history.filter(pl.col("symbol") == symbol)[
+            commissions = self.trade_history.filter(col("symbol") == symbol)[
                 "commissions"
             ].sum()
             symbol_metrics.update({"Commission Cost": commissions})
@@ -74,50 +73,48 @@ class MetricsGenerator:
         return metrics
 
     def _get_average_trade_return(self, symbol):
-        trade_history = self.trade_history.filter(pl.col("symbol") == symbol)
+        trade_history = self.trade_history.filter(col("symbol") == symbol)
 
         trade_history = trade_history.with_columns(
-            pl.when(pl.col("closed_by") == "TP")
-            .then(pl.col("take_profit"))
-            .when(pl.col("closed_by") == "SL")
-            .then(pl.col("stop_loss"))
-            .otherwise(pl.lit(None))
+            when(col("closed_by") == "TP")
+            .then(col("take_profit"))
+            .when(col("closed_by") == "SL")
+            .then(col("stop_loss"))
+            .otherwise(lit(None))
             .alias("exit_price")
         )
 
         trade_history = trade_history.with_columns(
-            (
-                (pl.col("exit_price") - pl.col("entry_price"))
-                / pl.col("entry_price")
-                * 100
-            ).alias("return_pct")
+            ((col("exit_price") - col("entry_price")) / col("entry_price") * 100).alias(
+                "return_pct"
+            )
         )
 
         return float(trade_history["return_pct"].mean())
 
     def _get_symbol_max_drawdown(self, symbol):
         df = (
-            pl.DataFrame(
+            DataFrame(
                 {
                     "timestamp": list(self.equity_history_copy[symbol].keys()),
                     "pnl": list(self.equity_history_copy[symbol].values()),
                 }
             )
-            .with_columns(pl.col("timestamp").cast(pl.Datetime("ms")))
+            .with_columns(col("timestamp").cast(Datetime("ms")))
             .sort("timestamp")
         )
 
-        df = df.with_columns(pl.col("pnl").cum_max().alias("running_max"))
+        df = df.with_columns(col("pnl").cum_max().alias("running_max"))
         df = df.with_columns(
-            ((pl.col("pnl") - pl.col("running_max"))).alias("drawdown_dollar"),
-            (
-                (pl.col("pnl") - pl.col("running_max")) / pl.col("running_max") * 100
-            ).alias("drawdown_pct"),
+            ((col("pnl") - col("running_max"))).alias("drawdown_dollar"),
+            ((col("pnl") - col("running_max")) / col("running_max") * 100).alias(
+                "drawdown_pct"
+            ),
         )
         max_drawdown_row = df.select(
             [
-                pl.col("drawdown_pct").min().alias("max_drawdown_pct"),
-                pl.col("drawdown_dollar").min().alias("max_drawdown_dollar"),
+                col("drawdown_pct").min().alias("max_drawdown_pct"),
+                col("drawdown_dollar").min().alias("max_drawdown_dollar"),
             ]
         ).to_dict(as_series=False)
 
@@ -134,16 +131,16 @@ class MetricsGenerator:
 
     def _get_gross_profit_loss(self, symbol):
         closed_trades_profit = self.trade_history.filter(
-            (pl.col("symbol") == symbol) & (pl.col("pnl") > 0)
+            (col("symbol") == symbol) & (col("pnl") > 0)
         )["pnl"].sum()
         closed_trades_loss = self.trade_history.filter(
-            (pl.col("symbol") == symbol) & (pl.col("pnl") < 0)
+            (col("symbol") == symbol) & (col("pnl") < 0)
         )["pnl"].sum()
         open_trades_profit = self.current_positions.filter(
-            (pl.col("symbol") == symbol) & (pl.col("realized_pnl") > 0)
+            (col("symbol") == symbol) & (col("realized_pnl") > 0)
         )["realized_pnl"].sum()
         open_trades_loss = self.current_positions.filter(
-            (pl.col("symbol") == symbol) & (pl.col("realized_pnl") < 0)
+            (col("symbol") == symbol) & (col("realized_pnl") < 0)
         )["realized_pnl"].sum()
 
         return (
@@ -152,18 +149,18 @@ class MetricsGenerator:
         )
 
     def _get_symbol_pnl(self, symbol):
-        closed_trades_pnl = self.trade_history.filter(pl.col("symbol") == symbol)[
+        closed_trades_pnl = self.trade_history.filter(col("symbol") == symbol)[
             "pnl"
         ].sum()
         open_trades_realized_pnl = self.current_positions.filter(
-            pl.col("symbol") == symbol
+            col("symbol") == symbol
         )["realized_pnl"].sum()
         open_trades_unrealized_pnl = self.current_positions.filter(
-            pl.col("symbol") == symbol
+            col("symbol") == symbol
         )["unrealized_pnl"].sum()
-        closed_trades_commissions = self.trade_history.filter(
-            pl.col("symbol") == symbol
-        )["commissions"].sum()
+        closed_trades_commissions = self.trade_history.filter(col("symbol") == symbol)[
+            "commissions"
+        ].sum()
         return (
             closed_trades_pnl
             + open_trades_realized_pnl
@@ -172,17 +169,15 @@ class MetricsGenerator:
         )
 
     def _get_total_trades(self, symbol):
-        trade_history_count = self.trade_history.filter(
-            pl.col("symbol") == symbol
-        ).height
+        trade_history_count = self.trade_history.filter(col("symbol") == symbol).height
         current_position_count = self.current_positions.filter(
-            pl.col("symbol") == symbol
+            col("symbol") == symbol
         ).height
         return trade_history_count + current_position_count
 
     def _get_winrate(self, symbol, total_trades):
         profitable_positions = self.trade_history.filter(
-            (pl.col("symbol") == symbol) & (pl.col("closed_by") == "TP")
+            (col("symbol") == symbol) & (col("closed_by") == "TP")
         ).height
         return profitable_positions / total_trades * 100
 
@@ -239,8 +234,8 @@ class MetricsGenerator:
     def _get_portfolio_turnover(self):
         df = self.trade_history.select(
             [
-                pl.col("entry_time").alias("timestamp"),
-                pl.col("volume").alias("trade_value"),
+                col("entry_time").alias("timestamp"),
+                col("volume").alias("trade_value"),
             ]
         ).sort("timestamp")
 
@@ -248,13 +243,13 @@ class MetricsGenerator:
         avg_portfolio_value = df["trade_value"].mean()
 
         if avg_portfolio_value == 0:
-            return np.nan
+            return nan
 
         turnover_pct = (total_traded / avg_portfolio_value) * 100
         return turnover_pct
 
     def _get_equity_curve_stability(self):
-        df = pl.DataFrame(
+        df = DataFrame(
             {
                 "timestamp": list(self.general_equity_history.keys()),
                 "equity": list(self.general_equity_history.values()),
@@ -263,7 +258,7 @@ class MetricsGenerator:
         X = df["timestamp"].to_numpy().reshape(-1, 1)
         y = df["equity"].to_numpy()
         if len(y) < 2:
-            return np.nan
+            return nan
         model = LinearRegression()
         model.fit(X, y)
         r_squared = model.score(X, y)
@@ -271,46 +266,46 @@ class MetricsGenerator:
         return r_squared
 
     def _get_historical_var(self):
-        df = pl.DataFrame(
+        df = DataFrame(
             {
                 "timestamp": list(self.general_equity_history.keys()),
                 "equity": list(self.general_equity_history.values()),
             }
         )
-        df = df.with_columns(pl.col("timestamp").cast(pl.Datetime("ms")))
+        df = df.with_columns(col("timestamp").cast(Datetime("ms")))
         daily_df = df.group_by_dynamic(
             index_column="timestamp", every="1d", closed="right", by=None
-        ).agg(pl.col("equity").last().alias("equity"))
+        ).agg(col("equity").last().alias("equity"))
         daily_df = daily_df.sort("timestamp")
         returns = daily_df.select("equity").drop_nulls().to_numpy().flatten()
         confidence_level = 0.95
-        returns = np.asarray(returns)
+        returns = asarray(returns)
         var_percentile = 100 * (1 - confidence_level)
-        var = np.percentile(returns, var_percentile)
+        var = percentile(returns, var_percentile)
         return var
 
     def _get_max_drawdown(self):
         df = (
-            pl.DataFrame(
+            DataFrame(
                 {
                     "timestamp": list(self.general_equity_history.keys()),
                     "equity": list(self.general_equity_history.values()),
                 }
             )
-            .with_columns(pl.col("timestamp").cast(pl.Datetime("ms")))
+            .with_columns(col("timestamp").cast(Datetime("ms")))
             .sort("timestamp")
         )
-        df = df.with_columns(pl.col("equity").cum_max().alias("running_max"))
+        df = df.with_columns(col("equity").cum_max().alias("running_max"))
         df = df.with_columns(
-            ((pl.col("equity") - pl.col("running_max"))).alias("drawdown_dollar"),
-            (
-                (pl.col("equity") - pl.col("running_max")) / pl.col("running_max") * 100
-            ).alias("drawdown_pct"),
+            ((col("equity") - col("running_max"))).alias("drawdown_dollar"),
+            ((col("equity") - col("running_max")) / col("running_max") * 100).alias(
+                "drawdown_pct"
+            ),
         )
         max_drawdown_row = df.select(
             [
-                pl.col("drawdown_pct").min().alias("max_drawdown_pct"),
-                pl.col("drawdown_dollar").min().alias("max_drawdown_dollar"),
+                col("drawdown_pct").min().alias("max_drawdown_pct"),
+                col("drawdown_dollar").min().alias("max_drawdown_dollar"),
             ]
         ).to_dict(as_series=False)
 
@@ -320,47 +315,47 @@ class MetricsGenerator:
         )
 
     def _get_sharpe_sortino_ratios(self):
-        df = pl.DataFrame(
+        df = DataFrame(
             {
                 "timestamp": list(self.general_equity_history.keys()),
                 "equity": list(self.general_equity_history.values()),
             }
         )
-        df = df.with_columns(pl.col("timestamp").cast(pl.Datetime("ms")))
+        df = df.with_columns(col("timestamp").cast(Datetime("ms")))
         monthly_df = df.group_by_dynamic(
             index_column="timestamp", every="1mo", closed="right", by=None
-        ).agg(pl.col("equity").last().alias("equity"))
+        ).agg(col("equity").last().alias("equity"))
         monthly_df = monthly_df.sort("timestamp")
         monthly_df = monthly_df.with_columns(
-            (pl.col("equity").pct_change().alias("monthly_return"))
+            (col("equity").pct_change().alias("monthly_return"))
         )
         monthly_returns = (
             monthly_df.select("monthly_return").drop_nulls().to_numpy().flatten()
         )
-        monthly_sharpe = np.mean(monthly_returns) / np.std(monthly_returns)
-        annualized_sharpe = monthly_sharpe * np.sqrt(12)
+        monthly_sharpe = mean(monthly_returns) / std(monthly_returns)
+        annualized_sharpe = monthly_sharpe * sqrt(12)
 
         monthly_sortino, annualized_sortino = self._get_sortino_ratio(monthly_returns)
 
         return monthly_sharpe, annualized_sharpe, monthly_sortino, annualized_sortino
 
     def _get_sortino_ratio(self, returns):
-        returns = np.array(returns)
+        returns = array(returns)
         excess_returns = returns - 0 / 12
         downside_returns = excess_returns[excess_returns < 0]
         downside_std = (
-            np.std(downside_returns, ddof=1) if len(downside_returns) > 0 else np.nan
+            std(downside_returns, ddof=1) if len(downside_returns) > 0 else nan
         )
-        mean_excess_return = np.mean(excess_returns)
-        sortino = mean_excess_return / downside_std if downside_std != 0 else np.nan
-        annualized_sortino = sortino * np.sqrt(12)
+        mean_excess_return = mean(excess_returns)
+        sortino = mean_excess_return / downside_std if downside_std != 0 else nan
+        annualized_sortino = sortino * sqrt(12)
 
         return sortino, annualized_sortino
 
     def _get_volatility(self):
         returns = self.trade_history["pnl"].to_numpy()
-        daily_volatility = np.std(returns, ddof=1)
-        annual_volatility = daily_volatility * np.sqrt(365)
+        daily_volatility = std(returns, ddof=1)
+        annual_volatility = daily_volatility * sqrt(365)
 
         return daily_volatility, annual_volatility
 

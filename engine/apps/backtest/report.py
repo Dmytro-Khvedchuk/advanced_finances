@@ -1,22 +1,14 @@
 from bokeh.palettes import Category10
 from bokeh.plotting import figure, output_file, show
 from bokeh.models import ColumnDataSource, DatetimeTickFormatter
+from copy import deepcopy
 from engine.apps.backtest.analytics.metrics import MetricsGenerator
-from copy import deepcopy
-from utils.logger.logger import LoggerWrapper, log_execution
-
-from bokeh.io import export_png
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from copy import deepcopy
-from bokeh.palettes import Category10
-from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, DatetimeTickFormatter
-import matplotlib.pyplot as plt
-from reportlab.pdfgen import canvas
+from io import BytesIO
+from matplotlib.pyplot import close, cm, figure, legend, plot, savefig, title, xlabel, ylabel
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
-from io import BytesIO
+from reportlab.pdfgen import canvas
+from utils.logger.logger import LoggerWrapper, log_execution
 
 
 class ReportGenerator:
@@ -187,16 +179,16 @@ class ReportGenerator:
             general_data = equity_history.get("General", {})
             if general_data:
                 x, y = zip(*sorted(general_data.items()))
-                plt.figure(figsize=(16, 8))
-                plt.plot(x, y, color="navy", linewidth=2)
-                plt.title("General Equity")
-                plt.xlabel("Time")
-                plt.ylabel("Equity")
+                figure(figsize=(16, 8))
+                plot(x, y, color="navy", linewidth=2)
+                title("General Equity")
+                xlabel("Time")
+                ylabel("Equity")
                 buf = BytesIO()
-                plt.savefig(buf, format="png")
+                savefig(buf, format="png")
                 buf.seek(0)
                 chart_images["general"] = buf
-                plt.close()
+                close()
                 print("✅ General equity chart created")
         except Exception as e:
             print(f"⚠️ Failed to create general equity chart: {e}")
@@ -205,26 +197,26 @@ class ReportGenerator:
             symbol_data = deepcopy(equity_history)
             symbol_data.pop("General", None)
             if symbol_data:
-                colors = plt.cm.tab10.colors
-                plt.figure(figsize=(16, 8))
+                colors = cm.tab10.colors
+                figure(figsize=(16, 8))
                 for i, (symbol, data) in enumerate(symbol_data.items()):
                     x_sym, y_sym = zip(*sorted(data.items()))
-                    plt.plot(
+                    plot(
                         x_sym,
                         y_sym,
                         color=colors[i % len(colors)],
                         label=symbol,
                         linewidth=2,
                     )
-                plt.title("Symbol-wise PnL")
-                plt.xlabel("Time")
-                plt.ylabel("PnL")
-                plt.legend()
+                title("Symbol-wise PnL")
+                xlabel("Time")
+                ylabel("PnL")
+                legend()
                 buf = BytesIO()
-                plt.savefig(buf, format="png")
+                savefig(buf, format="png")
                 buf.seek(0)
                 chart_images["symbol"] = buf
-                plt.close()
+                close()
                 print("✅ Symbol PnL chart created")
         except Exception as e:
             print(f"⚠️ Failed to create symbol PnL chart: {e}")
