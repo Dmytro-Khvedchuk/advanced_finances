@@ -125,7 +125,6 @@ class MetricsGenerator:
             max_drawdown_row["max_drawdown_dollar"][0],
         )
 
-    @log_execution
     @staticmethod
     def _get_profit_factor(gross_profit, gross_loss):
         if gross_loss == 0:

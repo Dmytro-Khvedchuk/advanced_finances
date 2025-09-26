@@ -71,7 +71,7 @@ class Portfolio:
                 "stop_loss": order["stop_loss"],
             }
             if position["volume"] > self.equity:
-                # This should be logged print("not enough money!")
+                self.logger.warning("Not enough money!")
                 continue
             self.equity -= position["volume"] / self.leverage
 
@@ -226,9 +226,8 @@ class Portfolio:
         return realized_position_pnl + unrealized_position_pnl + realized_total_pnl
 
     @log_execution
-    @staticmethod
     def _calculate_pnl(
-        entry_price: float, current_price: float, volume: float, direction: str
+        self, entry_price: float, current_price: float, volume: float, direction: str
     ) -> float:
 
         asset_volume = volume / entry_price

@@ -69,6 +69,7 @@ class TradeDataManager:
 
         return data
 
+    @log_execution
     def _generate_expected_ids(
         self, *, start_id: int | None = None, end_id: int | None = None
     ):
@@ -79,7 +80,7 @@ class TradeDataManager:
 
         return arange(start_id, end_id + 1, dtype=int64), start_id, end_id
 
-    # ---=== HELPER METHODS ===---
+    @log_execution
     def _fetch_and_write_trades(self, fetch_ids_dictionary: dict):
         """Fetch trades from API and append them to parquet storage with retry logic."""
         for from_id, amount in fetch_ids_dictionary.items():
