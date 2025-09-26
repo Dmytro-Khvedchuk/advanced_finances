@@ -15,13 +15,11 @@ class RSIStrategy(Strategy):
         self.move = move
         self.strategy_name = "RSI Continuation Strategy"
 
-    @log_execution
     def generate_order(self, symbol: str, new_series: pl.Series):
         self._update_data(symbol=symbol, new_series=new_series)
         order = self._process_signal(symbol)
         return order
 
-    @log_execution
     def _process_signal(self, symbol: str):
         data = self.data[symbol].tail(self.candles_for_signal)
         order = None
@@ -66,7 +64,6 @@ class RSIStrategy(Strategy):
 
         return order
 
-    @log_execution
     def _update_data(self, symbol: str, new_series: pl.Series):
         if symbol not in self.data.keys():
             new_df = pl.DataFrame(new_series)
@@ -81,7 +78,6 @@ class RSIStrategy(Strategy):
                 new_df = self._calculate_rsi(symbol, new_df)
             self.data.update({symbol: new_df})
 
-    @log_execution
     def _calculate_rsi(self, symbol: str, df: pl.DataFrame):
         close_pd = df["close"].to_pandas()
         rsi = ta.momentum.RSIIndicator(

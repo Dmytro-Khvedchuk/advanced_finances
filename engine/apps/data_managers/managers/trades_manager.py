@@ -69,7 +69,6 @@ class TradeDataManager:
 
         return data
 
-    @log_execution
     def _generate_expected_ids(
         self, *, start_id: int | None = None, end_id: int | None = None
     ):

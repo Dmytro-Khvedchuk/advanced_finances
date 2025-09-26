@@ -25,7 +25,6 @@ class Portfolio:
         self.maker_fee = maker_fee
         self.taker_fee = taker_fee
 
-    @log_execution
     def get_metrics(self):
         return (
             self.equity_history,
@@ -35,7 +34,6 @@ class Portfolio:
             self.initial_capital,
         )
 
-    @log_execution
     def update_orders(self, order):
         order = pl.DataFrame(schema=ORDER_HISTORY_SCHEMA, data=order)
         order = order.with_columns(pl.lit(self.order_id).alias("order_id"))
@@ -43,7 +41,6 @@ class Portfolio:
         order = order.cast(self.order_history.schema)
         self.order_history = pl.concat([self.order_history, order])
 
-    @log_execution
     def update_positions(self, symbol, series):
         orders_to_be_executed = self.order_history.filter(
             (pl.col("status") == "PENDING") & (pl.col("symbol") == symbol)
@@ -53,7 +50,6 @@ class Portfolio:
 
         self._update_positions_stats(symbol=symbol, series=series)
 
-    @log_execution
     def _execute_orders(self, orders, series):
         for order in orders.to_dicts():
             position = {
@@ -85,7 +81,6 @@ class Portfolio:
                 .alias("status")
             )
 
-    @log_execution
     def _record_trade(self, position, closed_by, timestamp):
         self.current_positions = self.current_positions.filter(
             pl.col("order_id") != position["order_id"]
@@ -134,7 +129,6 @@ class Portfolio:
 
         self.trade_history = pl.concat([self.trade_history, trade_df])
 
-    @log_execution
     def _update_positions_stats(self, symbol, series):
         high = series["high"][-1]
         low = series["low"][-1]
@@ -215,7 +209,6 @@ class Portfolio:
         self.equity_history[symbol].update({timestamp: symbol_pnl})
         self.equity_history["General"].update({timestamp: total})
 
-    @log_execution
     def _calculate_symbol_pnl(self, symbol: str):
         symbol_data = self.current_positions.filter(pl.col("symbol") == symbol)
         realized_total_pnl = self.trade_history.filter(pl.col("symbol") == symbol)[
@@ -225,7 +218,6 @@ class Portfolio:
         realized_position_pnl = symbol_data["realized_pnl"].sum()
         return realized_position_pnl + unrealized_position_pnl + realized_total_pnl
 
-    @log_execution
     def _calculate_pnl(
         self, entry_price: float, current_price: float, volume: float, direction: str
     ) -> float:

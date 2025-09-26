@@ -37,7 +37,6 @@ class ClickHouseKlinesManager:
         """
         )
 
-    @log_execution
     def insert_klines(
         self, df: pl.DataFrame, symbol: str = SYMBOL, timeframe: str = TIMEFRAME
     ):
