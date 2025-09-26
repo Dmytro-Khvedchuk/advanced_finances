@@ -1,6 +1,7 @@
 import numpy as np
 import polars as pl
 from sklearn.linear_model import LinearRegression
+from utils.logger.logger import LoggerWrapper, log_execution
 
 
 class MetricsGenerator:
@@ -11,7 +12,10 @@ class MetricsGenerator:
         order_history,
         current_positions,
         initial_balance,
+        log_level,
     ):
+        self.logger = LoggerWrapper(name="Metrics Generator Module", level=log_level)
+
         self.equity_history = equity_history
         self.general_equity_history = self.equity_history["General"]
         self.trade_history = trade_history
@@ -22,6 +26,7 @@ class MetricsGenerator:
             list(self.general_equity_history.keys())[-1]
         ]
 
+    @log_execution
     def generate_symbolwise_metrics(self):
         metrics = {}
 
@@ -178,24 +183,21 @@ class MetricsGenerator:
         ).height
         return profitable_positions / total_trades * 100
 
+    @log_execution
     def generate_general_metrics(self):
         metrics = {}
 
-        # Total Net Profit
         net_profit, net_profit_pct = self._get_total_net_profit()
         metrics.update({"Total Net Profit ($)": net_profit})
         metrics.update({"Total Net Profit (%)": net_profit_pct})
 
-        # Annualized Return
         annualized_return = self._get_annualized_return()
         metrics.update({"Annualized Return (CAGR) (%)": annualized_return})
 
-        # Volatility
         daily_volatility, annual_volatility = self._get_volatility()
         metrics.update({"Volatility 1D": daily_volatility})
         metrics.update({"Volatility 1Y": annual_volatility})
 
-        # Sharpe Ratio
         (
             monthly_sharpe_ratio,
             annual_sharpe_ratio,
@@ -207,16 +209,13 @@ class MetricsGenerator:
         metrics.update({"Sortino Ratio 1M": monthly_sortino_ratio})
         metrics.update({"Sortino Ratio 1Y": annual_sortino_ratio})
 
-        # Max Drawdown
         max_drawdown_pct, max_drwadown_volume = self._get_max_drawdown()
         metrics.update({"Max Drawdown (%)": max_drawdown_pct})
         metrics.update({"Max Drawdown ($)": max_drwadown_volume})
 
-        # Calmar Ratio
         calmar_ratio = annualized_return / max_drawdown_pct
         metrics.update({"Calmar Ratio": calmar_ratio})
 
-        # Value at Risk
         var_95 = self._get_historical_var()
         metrics.update({"Value At Risk 95% (%)": var_95})
 

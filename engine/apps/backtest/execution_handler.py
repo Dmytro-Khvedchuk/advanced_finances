@@ -1,10 +1,12 @@
 from engine.apps.backtest.portfolio import Portfolio
 import polars as pl
 from engine.core.strategies.strategy import Strategy
+from utils.logger.logger import LoggerWrapper, log_execution
 
 
 class ExecutionHandler:
-    def __init__(self, portfolio: Portfolio, strategy: Strategy):
+    def __init__(self, portfolio: Portfolio, strategy: Strategy, log_level: int = 10):
+        self.logger = LoggerWrapper(name="Execution Handler Module", level=log_level)
         self.portfolio = portfolio
         self.strategy = strategy
         pass
@@ -22,7 +24,5 @@ class ExecutionHandler:
         return order
 
     def _check_portfolio(self):
-        # This function will be for checking current metrics
-        # If order can be executed and it should return True or False
         self.portfolio.get_metrics()
         pass

@@ -3,12 +3,16 @@ from bokeh.plotting import figure, output_file, show
 from bokeh.models import ColumnDataSource, DatetimeTickFormatter
 from engine.apps.backtest.analytics.metrics import MetricsGenerator
 from copy import deepcopy
+from utils.logger.logger import LoggerWrapper, log_execution
 
 
 class ReportGenerator:
-    def __init__(self, portfolio):
+    def __init__(self, portfolio, log_level: int = 10):
+        self.logger = LoggerWrapper(name="Report Generator Module", level=log_level)
         self.portfolio = portfolio
+        self.log_level = log_level
 
+    @log_execution
     def _generate_symbol_pnl_chart(self, equity_history):
         equity_history = deepcopy(equity_history)
         equity_history.pop("General", None)
@@ -47,6 +51,7 @@ class ReportGenerator:
 
         show(p)
 
+    @log_execution
     def generate_symbol_metrics(self):
         (
             equity_history,
@@ -57,11 +62,12 @@ class ReportGenerator:
         ) = self.portfolio.get_metrics()
 
         metrics_generator = MetricsGenerator(
-            equity_history,
-            trade_history,
-            order_history,
-            current_positions,
-            initial_balance,
+            equity_history=equity_history,
+            trade_history=trade_history,
+            order_history=order_history,
+            current_positions=current_positions,
+            initial_balance=initial_balance,
+            log_level=self.log_level,
         )
 
         metrics = metrics_generator.generate_symbolwise_metrics()
@@ -79,6 +85,7 @@ class ReportGenerator:
 
         self._generate_symbol_pnl_chart(equity_history=equity_history)
 
+    @log_execution
     def generate_general_metrics(self):
         (
             equity_history,
@@ -89,11 +96,12 @@ class ReportGenerator:
         ) = self.portfolio.get_metrics()
 
         metrics_generator = MetricsGenerator(
-            equity_history,
-            trade_history,
-            order_history,
-            current_positions,
-            initial_balance,
+            equity_history=equity_history,
+            trade_history=trade_history,
+            order_history=order_history,
+            current_positions=current_positions,
+            initial_balance=initial_balance,
+            log_level=self.log_level,
         )
 
         metrics = metrics_generator.generate_general_metrics()
@@ -107,6 +115,7 @@ class ReportGenerator:
 
         self._generate_general_chart(equity_history=equity_history)
 
+    @log_execution
     def _generate_general_chart(self, equity_history):
         title = "General Equity Chart"
         x_label = "Time"

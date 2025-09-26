@@ -11,7 +11,8 @@ from collections import defaultdict
 
 class Portfolio:
     def __init__(self, initial_balance, leverage, maker_fee, taker_fee, log_level):
-        # variables
+        self.logger = LoggerWrapper(name="Portfolio Module", level=log_level)
+
         self.trade_history = pl.DataFrame(schema=TRADE_HISTORY_SCHEMA, orient="row")
         self.order_history = pl.DataFrame(schema=ORDER_HISTORY_SCHEMA, orient="row")
         self.current_positions = pl.DataFrame(schema=POSITIONS_SCHEMA, orient="row")
@@ -19,16 +20,10 @@ class Portfolio:
         self.equity = initial_balance
         self.equity_history = defaultdict(dict)
 
-        # parameters
         self.leverage = leverage
         self.initial_capital = initial_balance
         self.maker_fee = maker_fee
         self.taker_fee = taker_fee
-
-        self.logger = LoggerWrapper(name="Portfolio Module", level=log_level)
-
-    # Here should be method that will allow or disallow for orders
-    # Also it should have something like liquidation chech for each candles
 
     def get_metrics(self):
         return (
@@ -72,7 +67,7 @@ class Portfolio:
                 "stop_loss": order["stop_loss"],
             }
             if position["volume"] > self.equity:
-                # This should be logged print("not enough money!")
+                self.logger.warning("Not enough money!")
                 continue
             self.equity -= position["volume"] / self.leverage
 
@@ -223,9 +218,8 @@ class Portfolio:
         realized_position_pnl = symbol_data["realized_pnl"].sum()
         return realized_position_pnl + unrealized_position_pnl + realized_total_pnl
 
-    @staticmethod
     def _calculate_pnl(
-        entry_price: float, current_price: float, volume: float, direction: str
+        self, entry_price: float, current_price: float, volume: float, direction: str
     ) -> float:
 
         asset_volume = volume / entry_price

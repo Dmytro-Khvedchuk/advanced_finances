@@ -2,10 +2,13 @@ from engine.core.strategies.strategy import Strategy
 import polars as pl
 import ta
 from utils.global_variables.SCHEMAS import ORDER_HISTORY_SCHEMA
+from utils.logger.logger import LoggerWrapper, log_execution
 
 
 class RSIStrategy(Strategy):
-    def __init__(self, rsi_period: int = 14, move: float = 0.05):
+    def __init__(self, rsi_period: int = 14, move: float = 0.05, log_level: int = 10):
+        self.logger = LoggerWrapper(name="RSI Strategy Module", level=log_level)
+
         self.candles_for_indicators = rsi_period
         self.candles_for_signal = 1
         self.data = {}

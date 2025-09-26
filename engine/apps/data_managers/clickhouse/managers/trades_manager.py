@@ -33,7 +33,6 @@ class ClickHouseTradesManager:
         """
         )
 
-    @log_execution
     def insert_trades(self, df: pl.DataFrame, symbol: str = SYMBOL):
         table_name = f"trades_{symbol}"
 

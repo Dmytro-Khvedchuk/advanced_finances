@@ -9,6 +9,9 @@ from utils.global_variables.GLOBAL_VARIABLES import LEVEL_MAP, SYMBOL
 
 from engine.core.strategies.ta_strategies.RSI_strategy import RSIStrategy
 
+import cProfile
+import pstats
+
 
 def pick_log_level():
     """Function for picking log level"""
@@ -51,13 +54,13 @@ def main():
         "AVAXUSDT",
     ]
     timeframe = "1h"
-    start_date = "June 1 2025"
+    start_date = "Aug 10 2025"
     end_date = "Aug 30 2025"
     initial_balance = 10000.0
     leverage = 4
     maker_fee = 0.0002
     taker_fee = 0.0004
-    strategy = RSIStrategy()
+    strategy = RSIStrategy(log_level=log_level)
 
     data = {}
 
@@ -84,4 +87,10 @@ def main():
 
 
 if __name__ == "__main__":
+    profiler = cProfile.Profile()
+    profiler.enable()
     main()
+    profiler.disable()
+    profiler.dump_stats("profile_output.prof")
+    p = pstats.Stats("profile_output.prof")
+    p.strip_dirs().sort_stats("cumulative").print_stats(50)
