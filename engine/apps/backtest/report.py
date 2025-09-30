@@ -1,23 +1,23 @@
+# Bokeh
 from bokeh.palettes import Category10
-from bokeh.plotting import figure, output_file, show
+from bokeh.plotting import figure as bokeh_figure, output_file, show
 from bokeh.models import ColumnDataSource, DatetimeTickFormatter
+
+# Matplotlib
+import matplotlib.pyplot as plt
+from matplotlib import cm
+
+# Стандартні бібліотеки
 from copy import deepcopy
-from engine.apps.backtest.analytics.metrics import MetricsGenerator
 from io import BytesIO
-from matplotlib.pyplot import (
-    close,
-    cm,
-    figure,
-    legend,
-    plot,
-    savefig,
-    title,
-    xlabel,
-    ylabel,
-)
+
+# ReportLab
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
+
+# Власні модулі
+from engine.apps.backtest.analytics.metrics import MetricsGenerator
 from utils.logger.logger import LoggerWrapper, log_execution
 
 
@@ -34,7 +34,7 @@ class ReportGenerator:
         equity_history = deepcopy(equity_history)
         equity_history.pop("General", None)
 
-        p = figure(
+        p = bokeh_figure(
             title="Symbol-wise PnL",
             x_axis_label="Time",
             y_axis_label="PnL",
@@ -145,12 +145,15 @@ class ReportGenerator:
 
         source = ColumnDataSource(data={"x": x, "y": y})
 
-        p = figure(
+        p = bokeh_figure(
             title=title,
             x_axis_label=x_label,
             y_axis_label=y_label,
             width=1600,
             height=800,
+        )
+        p.xaxis.formatter = DatetimeTickFormatter(
+            days="%d %b", months="%b %Y", years="%Y"
         )
         p.line("x", "y", source=source, line_width=2, color="navy")
         output_file("general_chart.html")
@@ -160,7 +163,7 @@ class ReportGenerator:
     def generate_pdf_report(
         self, strategy_name: str, output_file_path="strategy_report.pdf"
     ):
-        print("🚀 Starting PDF report generation")
+        self.logger.info("Starting PDF report generation")
 
         # --------------------------
         # 0. Get metrics
@@ -168,16 +171,16 @@ class ReportGenerator:
         try:
             (
                 equity_history,
-                trade_history,
-                order_history,
-                current_positions,
-                initial_balance,
+                _,
+                _,
+                _,
+                _,
             ) = self.portfolio.get_metrics()
             general_metrics = self.general_metrics
             symbol_metrics = self.symbol_wise_metrics
-            print("✅ Metrics retrieved")
+            self.logger.info("Metrics retrieved")
         except Exception as e:
-            print(f"⚠️ Failed to retrieve metrics: {e}")
+            self.logger.error(f"Failed to retrieve metrics: {e}")
             return
 
         # --------------------------
@@ -189,47 +192,47 @@ class ReportGenerator:
             general_data = equity_history.get("General", {})
             if general_data:
                 x, y = zip(*sorted(general_data.items()))
-                figure(figsize=(16, 8))
-                plot(x, y, color="navy", linewidth=2)
-                title("General Equity")
-                xlabel("Time")
-                ylabel("Equity")
+                plt.figure(figsize=(16, 8))
+                plt.plot(x, y, color="navy", linewidth=2)
+                plt.title("General Equity")
+                plt.xlabel("Time")
+                plt.ylabel("Equity")
                 buf = BytesIO()
-                savefig(buf, format="png")
+                plt.savefig(buf, format="png")
                 buf.seek(0)
                 chart_images["general"] = buf
-                close()
-                print("✅ General equity chart created")
+                plt.close()
+                self.logger.info("General equity chart created")
         except Exception as e:
-            print(f"⚠️ Failed to create general equity chart: {e}")
+            self.logger.error(f"Failed to create general equity chart: {e}")
 
         try:
             symbol_data = deepcopy(equity_history)
             symbol_data.pop("General", None)
             if symbol_data:
                 colors = cm.tab10.colors
-                figure(figsize=(16, 8))
+                plt.figure(figsize=(16, 8))
                 for i, (symbol, data) in enumerate(symbol_data.items()):
                     x_sym, y_sym = zip(*sorted(data.items()))
-                    plot(
+                    plt.plot(
                         x_sym,
                         y_sym,
                         color=colors[i % len(colors)],
                         label=symbol,
                         linewidth=2,
                     )
-                title("Symbol-wise PnL")
-                xlabel("Time")
-                ylabel("PnL")
-                legend()
+                plt.title("Symbol-wise PnL")
+                plt.xlabel("Time")
+                plt.ylabel("PnL")
+                plt.legend()
                 buf = BytesIO()
-                savefig(buf, format="png")
+                plt.savefig(buf, format="png")
                 buf.seek(0)
                 chart_images["symbol"] = buf
-                close()
-                print("✅ Symbol PnL chart created")
+                plt.close()
+                self.logger.info("Symbol PnL chart created")
         except Exception as e:
-            print(f"⚠️ Failed to create symbol PnL chart: {e}")
+            self.logger.error(f"⚠️ Failed to create symbol PnL chart: {e}")
 
         # --------------------------
         # 2. Identify best/worst performers
@@ -241,9 +244,9 @@ class ReportGenerator:
             worst_pnl = min(
                 symbol_metrics.items(), key=lambda x: x[1].get("Total PnL", 0)
             )
-            print("✅ Best/Worst performers identified")
+            self.logger.info("Best/Worst performers identified")
         except Exception as e:
-            print(f"⚠️ Failed to calculate best/worst performers: {e}")
+            self.logger.error(f"⚠️ Failed to calculate best/worst performers: {e}")
             return
 
         # --------------------------
@@ -252,9 +255,9 @@ class ReportGenerator:
         try:
             c = canvas.Canvas(output_file_path, pagesize=letter)
             width, height = letter
-            print("✅ PDF canvas created")
+            self.logger.info("PDF canvas created")
         except Exception as e:
-            print(f"⚠️ Failed to create PDF canvas: {e}")
+            self.logger.error(f"Failed to create PDF canvas: {e}")
             return
 
         # --------------------------
@@ -322,4 +325,4 @@ class ReportGenerator:
                 y_pos = height - 50
 
         c.save()
-        print(f"✅ PDF report generated: {output_file_path}")
+        self.logger.info(f"PDF report generated: {output_file_path}")

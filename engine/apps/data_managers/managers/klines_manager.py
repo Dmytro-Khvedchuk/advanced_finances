@@ -136,7 +136,8 @@ class KlineDataManager:
                     orient="row",
                     schema=KLINES_SCHEMA,
                 )
-                if len(data) == 0:
+                if len(data) == 0 or data["open_time"].min() != start:
+                    self.logger.warning("Data was fetched not right!")
                     break
 
                 self.click_house_data_manager.klines.insert_klines(
