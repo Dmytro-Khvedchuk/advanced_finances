@@ -7,6 +7,8 @@ from engine.core.strategies.ta_strategies.RSI_strategy import RSIStrategy
 from os import getenv
 from utils.global_variables.GLOBAL_VARIABLES import LEVEL_MAP, SYMBOL
 
+from engine.apps.data_managers.scraper_manager import ScraperManager
+
 
 def pick_log_level():
     """Function for picking log level"""
@@ -58,28 +60,32 @@ def main():
 
     data = {}
 
-    for symbol in symbols:
-        mdm.update_symbol(symbol)
-        klines = mdm.kline_manager.get_klines(
-            start_date=start_date, end_date=end_date, timeframe=timeframe
-        )
-        if klines.is_empty():
-            continue
-        data.update({symbol: klines})
+    scraper_manager = ScraperManager(log_level=log_level)
 
-    backtest_engine = BackTest(
-        data=data,
-        strategy=strategy,
-        log_level=log_level,
-        initial_balance=initial_balance,
-        leverage=leverage,
-        maker_fee=maker_fee,
-        taker_fee=taker_fee,
-    )
+    scraper_manager.forex_factory_manager.get_data()
 
-    backtest_engine.run()
+    # for symbol in symbols:
+    #     mdm.update_symbol(symbol)
+    #     klines = mdm.kline_manager.get_klines(
+    #         start_date=start_date, end_date=end_date, timeframe=timeframe
+    #     )
+    #     if klines.is_empty():
+    #         continue
+    #     data.update({symbol: klines})
 
-    backtest_engine.generate_report(pdf=True, file_name="RSI Strategy Report.pdf")
+    # backtest_engine = BackTest(
+    #     data=data,
+    #     strategy=strategy,
+    #     log_level=log_level,
+    #     initial_balance=initial_balance,
+    #     leverage=leverage,
+    #     maker_fee=maker_fee,
+    #     taker_fee=taker_fee,
+    # )
+
+    # backtest_engine.run()
+
+    # backtest_engine.generate_report(pdf=True, file_name="RSI Strategy Report.pdf")
 
 
 if __name__ == "__main__":
