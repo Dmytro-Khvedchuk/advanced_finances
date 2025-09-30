@@ -5,7 +5,6 @@ from engine.apps.data_managers.clickhouse.client import get_clickhouse_client
 from engine.apps.data_managers.market_data_manager import MarketDataManager
 from engine.core.strategies.ta_strategies.RSI_strategy import RSIStrategy
 from os import getenv
-from utils.charts.chart import Chart
 from utils.global_variables.GLOBAL_VARIABLES import LEVEL_MAP, SYMBOL
 
 
@@ -49,8 +48,8 @@ def main():
         "AVAXUSDT",
     ]
     timeframe = "1h"
-    start_date = "Aug 10 2025"
-    end_date = "Aug 30 2025"
+    start_date = "Aug 1 2022"
+    end_date = "Aug 1 2023"
     initial_balance = 10000.0
     leverage = 4
     maker_fee = 0.0002
@@ -64,6 +63,8 @@ def main():
         klines = mdm.kline_manager.get_klines(
             start_date=start_date, end_date=end_date, timeframe=timeframe
         )
+        if klines.is_empty():
+            continue
         data.update({symbol: klines})
 
     backtest_engine = BackTest(
