@@ -90,6 +90,8 @@ class MetricsGenerator:
             )
         )
 
+        if trade_history.is_empty():
+            return 0
         return float(trade_history["return_pct"].mean())
 
     def _get_symbol_max_drawdown(self, symbol):

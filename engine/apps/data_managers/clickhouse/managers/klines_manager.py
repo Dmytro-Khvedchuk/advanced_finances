@@ -2,6 +2,7 @@ from clickhouse_driver import Client
 from utils.logger.logger import LoggerWrapper, log_execution
 import polars as pl
 from utils.global_variables.GLOBAL_VARIABLES import SYMBOL, TIMEFRAME
+from utils.global_variables.SCHEMAS import KLINES_SCHEMA
 
 
 class ClickHouseKlinesManager:
@@ -55,6 +56,34 @@ class ClickHouseKlinesManager:
         columns: str | None = None,
     ) -> pl.DataFrame:
         table_name = f"klines_{symbol}_{timeframe}"
+
+        # clean table from accidental duplicates
+
+        self.client.execute(
+            f"""
+        CREATE TABLE tmp_dedup AS {table_name}
+        ENGINE = MergeTree()
+        ORDER BY open_time
+        """
+        )
+
+        self.client.execute(
+            f"""
+        INSERT INTO tmp_dedup
+        SELECT {", ".join(KLINES_SCHEMA.keys())}
+        FROM (
+            SELECT 
+                t.*,
+                ROW_NUMBER() OVER (PARTITION BY open_time ORDER BY open_time ASC) AS rn
+            FROM {table_name} t
+        ) sub
+        WHERE rn = 1;
+        """
+        )
+
+        self.client.execute(f"DROP TABLE {table_name}")
+
+        self.client.execute(f"RENAME TABLE tmp_dedup TO {table_name}")
 
         select_cols = ", ".join(columns) if columns else "*"
 

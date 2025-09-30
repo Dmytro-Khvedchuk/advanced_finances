@@ -129,84 +129,85 @@ class Portfolio:
         self.trade_history = concat([self.trade_history, trade_df])
 
     def _update_positions_stats(self, symbol, series):
-        high = series["high"][-1]
-        low = series["low"][-1]
-        close = series["close"][-1]
-        timestamp = series["open_time"][-1]
+        if not series.is_empty():
+            high = series["high"][-1]
+            low = series["low"][-1]
+            close = series["close"][-1]
+            timestamp = series["open_time"][-1]
 
-        positions_by_symbol = self.current_positions.filter(col("symbol") == symbol)
+            positions_by_symbol = self.current_positions.filter(col("symbol") == symbol)
 
-        for position in positions_by_symbol.to_dicts():
-            if position["direction"] == "BUY" and symbol == position["symbol"]:
-                if high > position["take_profit"]:
-                    closed_by = "TP"
-                    self._record_trade(
-                        position=position, closed_by=closed_by, timestamp=timestamp
-                    )
+            for position in positions_by_symbol.to_dicts():
+                if position["direction"] == "BUY" and symbol == position["symbol"]:
+                    if high > position["take_profit"]:
+                        closed_by = "TP"
+                        self._record_trade(
+                            position=position, closed_by=closed_by, timestamp=timestamp
+                        )
 
-                elif low < position["stop_loss"]:
-                    closed_by = "SL"
-                    self._record_trade(
-                        position=position, closed_by=closed_by, timestamp=timestamp
-                    )
-                else:
-                    self.current_positions = self.current_positions.filter(
-                        col("order_id") != position["order_id"]
-                    )
-                    position["unrealized_pnl"] = self._calculate_pnl(
-                        entry_price=position["entry_price"],
-                        current_price=close,
-                        volume=position["volume"],
-                        direction=position["direction"],
-                    )
-                    self.current_positions = concat(
-                        [
-                            self.current_positions,
-                            DataFrame(data=position, schema=POSITIONS_SCHEMA),
-                        ]
-                    )
-
-            else:
-                if low < position["take_profit"]:
-                    closed_by = "TP"
-                    self._record_trade(
-                        position=position, closed_by=closed_by, timestamp=timestamp
-                    )
-
-                elif high > position["stop_loss"]:
-                    closed_by = "SL"
-                    self._record_trade(
-                        position=position, closed_by=closed_by, timestamp=timestamp
-                    )
+                    elif low < position["stop_loss"]:
+                        closed_by = "SL"
+                        self._record_trade(
+                            position=position, closed_by=closed_by, timestamp=timestamp
+                        )
+                    else:
+                        self.current_positions = self.current_positions.filter(
+                            col("order_id") != position["order_id"]
+                        )
+                        position["unrealized_pnl"] = self._calculate_pnl(
+                            entry_price=position["entry_price"],
+                            current_price=close,
+                            volume=position["volume"],
+                            direction=position["direction"],
+                        )
+                        self.current_positions = concat(
+                            [
+                                self.current_positions,
+                                DataFrame(data=position, schema=POSITIONS_SCHEMA),
+                            ]
+                        )
 
                 else:
-                    self.current_positions = self.current_positions.filter(
-                        col("order_id") != position["order_id"]
-                    )
-                    position["unrealized_pnl"] = self._calculate_pnl(
-                        entry_price=position["entry_price"],
-                        current_price=close,
-                        volume=position["volume"],
-                        direction=position["direction"],
-                    )
+                    if low < position["take_profit"]:
+                        closed_by = "TP"
+                        self._record_trade(
+                            position=position, closed_by=closed_by, timestamp=timestamp
+                        )
 
-                    self.current_positions = concat(
-                        [
-                            self.current_positions,
-                            DataFrame(data=position, schema=POSITIONS_SCHEMA),
-                        ]
-                    )
+                    elif high > position["stop_loss"]:
+                        closed_by = "SL"
+                        self._record_trade(
+                            position=position, closed_by=closed_by, timestamp=timestamp
+                        )
 
-        current_equity = self.equity
-        unrealized_pnl = self.current_positions["unrealized_pnl"].sum()
-        volume_in_positions = self.current_positions["volume"].sum() / self.leverage
-        commissions = self.trade_history["commissions"].sum()
-        total = current_equity + unrealized_pnl + volume_in_positions - commissions
+                    else:
+                        self.current_positions = self.current_positions.filter(
+                            col("order_id") != position["order_id"]
+                        )
+                        position["unrealized_pnl"] = self._calculate_pnl(
+                            entry_price=position["entry_price"],
+                            current_price=close,
+                            volume=position["volume"],
+                            direction=position["direction"],
+                        )
 
-        symbol_pnl = self._calculate_symbol_pnl(symbol=symbol)
+                        self.current_positions = concat(
+                            [
+                                self.current_positions,
+                                DataFrame(data=position, schema=POSITIONS_SCHEMA),
+                            ]
+                        )
 
-        self.equity_history[symbol].update({timestamp: symbol_pnl})
-        self.equity_history["General"].update({timestamp: total})
+            current_equity = self.equity
+            unrealized_pnl = self.current_positions["unrealized_pnl"].sum()
+            volume_in_positions = self.current_positions["volume"].sum() / self.leverage
+            commissions = self.trade_history["commissions"].sum()
+            total = current_equity + unrealized_pnl + volume_in_positions - commissions
+
+            symbol_pnl = self._calculate_symbol_pnl(symbol=symbol)
+
+            self.equity_history[symbol].update({timestamp: symbol_pnl})
+            self.equity_history["General"].update({timestamp: total})
 
     def _calculate_symbol_pnl(self, symbol: str):
         symbol_data = self.current_positions.filter(col("symbol") == symbol)
