@@ -54,3 +54,10 @@ MONTHS = {
     11: "nov",
     12: "dec"
 }
+
+IMPACT_MAP = {
+    "icon--ff-impact-gra": "Non-Economic",
+    "icon--ff-impact-yel": "Low",
+    "icon--ff-impact-ora": "Medium",
+    "icon--ff-impact-red": "High",
+}
