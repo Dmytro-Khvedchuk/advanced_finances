@@ -1,6 +1,6 @@
 from utils.logger.logger import LoggerWrapper
 from bs4 import BeautifulSoup
-from utils.global_variables.GLOBAL_VARIABLES import MONTHS
+from utils.global_variables.GLOBAL_VARIABLES import MONTHS, IMPACT_MAP
 import cloudscraper
 
 
@@ -54,6 +54,7 @@ class ForexFactoryScraper:
 
         day_data = self.split_by_day_breaker(new_calendar_days[0].parent.find_all("tr"))[1:]       
 
+        month_data = {}
 
         for index, day in enumerate(new_calendar_days):
             # find date
@@ -62,8 +63,44 @@ class ForexFactoryScraper:
             date = date.find("span").contents[0]
             date = f"{date} {year}"
 
-            print(len(day_data[index]))
- 
+            day_events = {}
+
+            event_time = None
+
+            for event in day_data[index][1:]:
+                current_time = event.find("td", class_="calendar__time").contents
+                if current_time:
+                    event_time = current_time[0]
+
+                currency = event.find("td", class_="calendar__currency").contents[0]
+                classes = event.find("span").get("class", [])
+                impact_class = next((c for c in classes if c.startswith("icon--ff-impact-")), None)
+                impact = IMPACT_MAP.get(impact_class)
+                event_name = event.find("span", class_="calendar__event-title").contents[0]
+
+                actual = event.find("td", class_="calendar__actual").find("span")
+                if actual:
+                    actual = actual.contents[0]
+                forecast = event.find("td", class_="calendar__forecast").find("span")
+                if forecast:
+                    forecast = forecast.contents[0]
+                previous = event.find("td", class_="calendar__previous").find("span")
+                # TODO: fix previous value quirky behaviour
+                if previous:
+                    previous = previous.contents
+
+                day_events.update({
+                    "date": date,
+                    "time": event_time,
+                    "currency": currency,
+                    "impact": impact,
+                    "name": event_name,
+                    "actual": actual,
+                    "forecast": forecast,
+                    "previous": previous
+                })
+            print(day_events)
+            month_data.update(day_events)             
 
         return []
 
