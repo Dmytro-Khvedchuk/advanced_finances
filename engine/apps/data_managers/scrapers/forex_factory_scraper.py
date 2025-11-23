@@ -10,7 +10,7 @@ class ForexFactoryScraper:
             name="Forex Factory Scraper Module", level=log_level
         )
 
-        self.base_url = "https://www.forexfactory.com/"
+        self.base_url = "https://www.forexfactory.com/calendar/"
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -21,23 +21,71 @@ class ForexFactoryScraper:
         self.scraper = cloudscraper.create_scraper()
 
     def get_data(self, from_month: int, from_year: int, duration_months: int):
-        self.run_through_months(
-            from_month=from_month,
-            from_year=from_year,
-            duration_months=duration_months
-        )
-        # response = self.scraper.get(self.url)
-        # soup = BeautifulSoup(response.text, "lxml")
-
-    def run_through_months(self, from_month: int, duration_months: int, from_year: int):
         month = from_month
         year = from_year
+        for _ in range(duration_months):
+            current_url = f"{self.base_url}?month={MONTHS[month]}.{year}"
 
-        for i in range(duration_months):
-            print(f"month {i}")
-            print(f"date: {MONTHS[month]}, {year}")
+            data = self.fetch_data_from_url(current_url)
+            print(data)
 
             month += 1
             if month > 12:
                 month = 1
                 year += 1
+            
+
+    def fetch_data_from_url(self, url: str):
+        response = self.scraper.get(url)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, "lxml")
+
+        table = soup.find("table", class_="calendar__table")
+
+        if table is None:
+            print("calendar__table not found")
+            return []
+
+        year = url[-4:]
+
+        new_calendar_days = table.find_all("tr", class_="calendar__row--new-day")
+
+
+        day_data = self.split_by_day_breaker(new_calendar_days[0].parent.find_all("tr"))[1:]       
+
+
+        for index, day in enumerate(new_calendar_days):
+            # find date
+            date = day.find("td", class_="calendar__date")
+            date = date.find("span", class_="date")
+            date = date.find("span").contents[0]
+            date = f"{date} {year}"
+
+            print(len(day_data[index]))
+ 
+
+        return []
+
+    @staticmethod
+    def split_by_day_breaker(rows):
+        result = []
+        current = []
+
+        for row in rows:
+            classes = row.get("class", [])
+
+            # check if row is a day-breaker
+            if ("calendar__row--day-breaker" in classes):
+                # only append non-empty groups
+                if current:
+                    result.append(current)
+                    current = []
+            else:
+                current.append(row)
+
+        # append last group
+        if current:
+            result.append(current)
+
+        return result
