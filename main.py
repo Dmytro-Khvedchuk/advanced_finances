@@ -62,7 +62,11 @@ def main():
 
     scraper_manager = ScraperManager(log_level=log_level)
 
-    scraper_manager.forex_factory_manager.get_data()
+    scraper_manager.forex_factory_manager.get_data(
+        from_month=1,
+        from_year=2020,
+        duration_months=1
+    )
 
     # for symbol in symbols:
     #     mdm.update_symbol(symbol)
