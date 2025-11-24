@@ -67,27 +67,47 @@ class ForexFactoryScraper:
 
             event_time = None
 
-            for event in day_data[index][1:]:
-                current_time = event.find("td", class_="calendar__time").contents
+            for event in day_data[index]:
+                current_time = event.find("td", class_="calendar__time")
                 if current_time:
-                    event_time = current_time[0]
+                    event_time = current_time.contents[0] if current_time.contents else event_time
 
-                currency = event.find("td", class_="calendar__currency").contents[0]
+                currency = event.find("td", class_="calendar__currency")
+                if currency:
+                    currency = currency.contents[0] if currency.contents else None
+
+
                 classes = event.find("span").get("class", [])
                 impact_class = next((c for c in classes if c.startswith("icon--ff-impact-")), None)
+                # fix impact is None, make it into a table
                 impact = IMPACT_MAP.get(impact_class)
-                event_name = event.find("span", class_="calendar__event-title").contents[0]
 
-                actual = event.find("td", class_="calendar__actual").find("span")
+                event_name = event.find("span", class_="calendar__event-title")
+                if event_name:
+                    event_name = event_name.contents[0] if event_name.contents else None
+
+                actual = event.find("td", class_="calendar__actual")
                 if actual:
-                    actual = actual.contents[0]
-                forecast = event.find("td", class_="calendar__forecast").find("span")
+                    actual = actual.find("span")
+                    if actual:
+                        actual = actual.contents[0] if actual.contents else None
+
+                forecast = event.find("td", class_="calendar__forecast")
                 if forecast:
-                    forecast = forecast.contents[0]
-                previous = event.find("td", class_="calendar__previous").find("span")
-                # TODO: fix previous value quirky behaviour
-                if previous:
-                    previous = previous.contents
+                    forecast = forecast.find("span")
+                    if forecast:
+                        forecast = forecast.contents[0] if forecast.contents else None
+
+                previous_tag = event.find("td", class_="calendar__previous")
+                if previous_tag:
+                    previous_tag = previous_tag.find("span", recursive=True)
+
+                    if previous_tag is None:
+                        previous = None
+                    elif not previous_tag.contents:
+                        previous = None
+                    else:
+                        previous = previous_tag.contents[0]
 
                 day_events.update({
                     "date": date,
@@ -99,8 +119,8 @@ class ForexFactoryScraper:
                     "forecast": forecast,
                     "previous": previous
                 })
-            print(day_events)
-            month_data.update(day_events)             
+
+                print(day_events)
 
         return []
 
