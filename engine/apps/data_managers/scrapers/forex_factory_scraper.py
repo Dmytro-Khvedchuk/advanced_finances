@@ -27,7 +27,7 @@ class ForexFactoryScraper:
             current_url = f"{self.base_url}?month={MONTHS[month]}.{year}"
 
             data = self.fetch_data_from_url(current_url)
-            print(data)
+            # here should be insert into the database
 
             month += 1
             if month > 12:
@@ -54,7 +54,7 @@ class ForexFactoryScraper:
 
         day_data = self.split_by_day_breaker(new_calendar_days[0].parent.find_all("tr"))[1:]       
 
-        month_data = {}
+        month_data = []
 
         for index, day in enumerate(new_calendar_days):
             # find date
@@ -77,10 +77,11 @@ class ForexFactoryScraper:
                     currency = currency.contents[0] if currency.contents else None
 
 
-                classes = event.find("span").get("class", [])
-                impact_class = next((c for c in classes if c.startswith("icon--ff-impact-")), None)
-                # fix impact is None, make it into a table
-                impact = IMPACT_MAP.get(impact_class)
+                impact = event.find("td", class_="calendar__impact")
+                if impact:
+                    classes = impact.find("span").get("class", [])
+                    impact_class = next((c for c in classes if c.startswith("icon--ff-impact-")), None)
+                    impact = IMPACT_MAP.get(impact_class) 
 
                 event_name = event.find("span", class_="calendar__event-title")
                 if event_name:
@@ -99,6 +100,7 @@ class ForexFactoryScraper:
                         forecast = forecast.contents[0] if forecast.contents else None
 
                 previous_tag = event.find("td", class_="calendar__previous")
+                previous = None
                 if previous_tag:
                     previous_tag = previous_tag.find("span", recursive=True)
 
@@ -120,9 +122,9 @@ class ForexFactoryScraper:
                     "previous": previous
                 })
 
-                print(day_events)
+                month_data.append(day_events)
 
-        return []
+        return month_data
 
     @staticmethod
     def split_by_day_breaker(rows):
