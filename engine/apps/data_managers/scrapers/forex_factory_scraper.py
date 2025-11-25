@@ -1,5 +1,6 @@
 from utils.logger.logger import LoggerWrapper
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 from utils.global_variables.GLOBAL_VARIABLES import MONTHS, IMPACT_MAP
 import cloudscraper
 
@@ -71,6 +72,8 @@ class ForexFactoryScraper:
                 current_time = event.find("td", class_="calendar__time")
                 if current_time:
                     event_time = current_time.contents[0] if current_time.contents else event_time
+                    if isinstance(event_time, Tag):
+                        event_time = current_time.contents[1] if current_time.contents else event_time
 
                 currency = event.find("td", class_="calendar__currency")
                 if currency:
