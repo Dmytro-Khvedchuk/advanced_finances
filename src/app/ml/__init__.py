@@ -1,0 +1,1 @@
+"""This package is responsible for getting the data from database, and performing machine learning for the predictions."""
