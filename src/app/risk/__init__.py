@@ -1,0 +1,1 @@
+"""This package is responsible for the aggregating risks and making the choice about trade."""
