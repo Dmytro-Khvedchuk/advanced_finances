@@ -17,6 +17,7 @@ dependencies = [
     "lxml>=6.0.2",
     "matplotlib>=3.10.7",
     "polars>=1.35.2",
+    "pre-commit>=4.5.1",
     "python-binance>=1.0.32",
     "reportlab>=4.4.5",
     "requests>=2.32.5",
