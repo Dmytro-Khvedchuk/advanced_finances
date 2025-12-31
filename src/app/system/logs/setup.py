@@ -8,6 +8,7 @@ are captured, processed, and formatted consistently by Loguru.
 import logging
 
 from src.app.system.logs.config import get_logger, setup_logger
+from src.app.system.secrets import Secrets
 
 
 def setup_logging() -> None:
@@ -32,7 +33,7 @@ def setup_logging() -> None:
         simple root logger inheritance.
     """
     # Step 1: Configure the global Loguru logger
-    setup_logger(level=str(20)) # TODO: add the log level based on the deploy variable
+    setup_logger(level=Secrets.log_level)  # TODO: add the log level based on the deploy variable
     # Bind the main logger to a module name. This is a good practice for structured logging.
     get_logger(module_name="__main__")
 
