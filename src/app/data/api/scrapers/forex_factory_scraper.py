@@ -49,31 +49,50 @@ class ForexFactoryScraper:
         # REQUIRED: establish Cloudflare cookies
         self.scraper.get("https://www.forexfactory.com/")
 
-    def get_data(self, from_month: int, from_year: int, duration_months: int) -> pl.DataFrame | None:
+    def get_data(self, from_month: int, from_year: int, duration_months: int) -> pl.DataFrame:
         """Fetch calendar data for a range of months.
 
         Args:
             from_month (int): Starting month number (1-12).
             from_year (int): Starting year number (e.g., 2024).
             duration_months (int): Number of months to fetch sequentially.
+
+        Returns:
+            pl.DataFrame: Polars dataframe with all of the fetched data.
         """
         logger.info(f"Trying to fetch the data from year: {from_year}, " 
                     f"from month: {from_month}, for {duration_months} months")
 
         month: int = from_month
         year: int = from_year
+
+        dataframes: list[pl.DataFrame] = []
+
         for _ in range(duration_months):
             current_url: str = f"{self.base_url}?month={MONTHS[month]}.{year}"
 
             data: pl.DataFrame = self.fetch_data_from_url(current_url)
             logger.info(f"Successfully fetched {data.shape} records from the {current_url}.")
-            data.write_parquet("123.parquet")
-            logger.info(data)
+
+            if not data.is_empty():
+                dataframes.append(data)
 
             month += 1
             if month > len(MONTHS):
                 month = 1
                 year += 1
+            
+        if not dataframes:
+            logger.warning("No data was fetched for the given date range.")
+            return pl.DataFrame()  # TODO: add custom exception
+
+        final_df: pl.DataFrame = pl.concat(dataframes, how="vertical")
+
+        logger.info(
+            f"Final dataframe created with {final_df.shape} total records."
+        )
+
+        return final_df
             
     def fetch_data_from_url(self, url: str) -> pl.DataFrame:  # noqa: PLR0912, PLR0914, PLR0915
         """Fetch and parse calendar data from a Forex Factory URL.
@@ -187,17 +206,15 @@ class ForexFactoryScraper:
                         previous=ForexFactoryNumericValue.parse_str_into_numerical(str(previous)),
                     )
                 except ValidationError as exc:
-                    logger.warning(
-                        "Skipping invalid Forex Factory event",
-                        extra={
-                            "date": date,
-                            "raw_time": event_time,
-                            "event_name": str(event_name),
-                            "currency": str(currency),
-                            "url": url,
-                            "error": exc.errors(),
-                        },
-                    )
+                    message: dict = {
+                        "date": date,
+                        "raw_time": event_time,
+                        "event_name": str(event_name),
+                        "currency": str(currency),
+                        "url": url,
+                        "error": exc.errors(),
+                    }
+                    logger.warning(f"Skipping invalid Forex Factory event {message}")
                     continue
 
                 month_data.append(event_record.model_dump())
