@@ -1,144 +1,305 @@
-from utils.logger.logger import LoggerWrapper
+"""Scrape the Forex Factory economic calendar into structured dataframes."""
+
+from collections.abc import Iterable
+
+import polars as pl
 from bs4 import BeautifulSoup
-from bs4.element import Tag
-from utils.global_variables.GLOBAL_VARIABLES import MONTHS, IMPACT_MAP
-import cloudscraper
+from bs4.element import PageElement, Tag
+from cloudscraper import CloudScraper, create_scraper  # type: ignore[reportMissingTypeStubs]
+from requests import HTTPError, Response
+
+from src.app.data.api.domain.value_objects import (
+    FOREX_FACTORY_IMPACT_MAP, ForexEventTimeType, ForexFactoryCurrencies, ForexFactoryImpact, ForexFactoryImpactIcon,
+    ForexFactorySectionClasses, MONTHS
+)
+from src.app.data.api.presentation.schemas import (
+    ForexFactoryDataframeSchema, ForexFactoryEventSchema, ForexFactoryNumericValue
+)
+from src.app.system.logs import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class ForexFactoryScraper:
-    def __init__(self, log_level: int = 10):
-        self.logger = LoggerWrapper(
-            name="Forex Factory Scraper Module", level=log_level
+    """Scrape the Forex Factory calendar and normalize event records."""
+    def __init__(self) -> None:
+        """Initialize the scraper with headers and Cloudflare cookies."""
+        self.base_url: str = "https://www.forexfactory.com/calendar/"                    
+
+        self.scraper: CloudScraper = create_scraper(
+            browser={
+                "browser": "chrome",
+                "platform": "windows",
+                "desktop": True,
+            }
         )
 
-        self.base_url = "https://www.forexfactory.com/calendar/"
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/117.0.0.0 Safari/537.36",
+        self.scraper.headers.update({
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
             "Accept-Language": "en-US,en;q=0.9",
-        }
+            "Referer": "https://www.forexfactory.com/",
+        })
 
-        self.scraper = cloudscraper.create_scraper()
+        # REQUIRED: establish Cloudflare cookies
+        self.scraper.get("https://www.forexfactory.com/")
 
-    def get_data(self, from_month: int, from_year: int, duration_months: int):
-        month = from_month
-        year = from_year
+    def get_data(self, from_month: int, from_year: int, duration_months: int) -> pl.DataFrame | None:
+        """Fetch calendar data for a range of months.
+
+        Args:
+            from_month (int): Starting month number (1-12).
+            from_year (int): Starting year number (e.g., 2024).
+            duration_months (int): Number of months to fetch sequentially.
+        """
+        logger.info(f"Trying to fetch the data from year: {from_year}, " 
+                    f"from month: {from_month}, for {duration_months} months")
+
+        month: int = from_month
+        year: int = from_year
         for _ in range(duration_months):
-            current_url = f"{self.base_url}?month={MONTHS[month]}.{year}"
+            current_url: str = f"{self.base_url}?month={MONTHS[month]}.{year}"
 
-            data = self.fetch_data_from_url(current_url)
-            # here should be insert into the database
+            data: pl.DataFrame = self.fetch_data_from_url(current_url)
+            logger.info(f"Successfully fetched {data.shape} records from the {current_url}.")
+            data.write_parquet("123.parquet")
+            logger.info(data)
 
             month += 1
-            if month > 12:
+            if month > len(MONTHS):
                 month = 1
                 year += 1
             
+    def fetch_data_from_url(self, url: str) -> pl.DataFrame:  # noqa: PLR0912, PLR0914, PLR0915
+        """Fetch and parse calendar data from a Forex Factory URL.
 
-    def fetch_data_from_url(self, url: str):
-        response = self.scraper.get(url)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.text, "lxml")
+        Args:
+            url: Calendar URL for a specific month.
 
-        table = soup.find("table", class_="calendar__table")
+        Returns:
+            Parsed calendar data as a Polars DataFrame.
 
-        if table is None:
-            print("calendar__table not found")
-            return []
+        Raises:
+            HTTPError: When the request fails or returns a bad status.
+        """
+        logger.info(f"Fetching data from the {url}")
 
-        year = url[-4:]
+        try:
+            response: Response = self.scraper.get(url)
+            response.raise_for_status()
+        except HTTPError:
+            logger.error(f"An exception during getting the data by url {url} occurred", exc_info=True)
+            raise
 
-        new_calendar_days = table.find_all("tr", class_="calendar__row--new-day")
+        soup: BeautifulSoup = BeautifulSoup(response.text, "lxml")
 
+        table: Tag | None = soup.find("table", class_=ForexFactorySectionClasses.TABLE)
 
-        day_data = self.split_by_day_breaker(new_calendar_days[0].parent.find_all("tr"))[1:]       
+        if not table:
+            logger.warning(f"{ForexFactorySectionClasses.TABLE} not found.")
+            return pl.DataFrame()  # TODO: add a custom exception.
 
-        month_data = []
+        year: str = url[-4:]
+
+        new_calendar_days: list[Tag] | None = table.find_all("tr", class_=ForexFactorySectionClasses.NEW_DAY_SEPARATOR)
+
+        parent: Tag | None = new_calendar_days[0].parent
+        if not parent:
+            return pl.DataFrame()  # TODO: add a custom exception.
+
+        day_rows: list[Tag] | None = parent.find_all("tr")
+        day_data: list[list[Tag]] = self.split_by_day_breaker(day_rows)[1:]
+
+        month_data: list[dict] = []
 
         for index, day in enumerate(new_calendar_days):
-            # find date
-            date = day.find("td", class_="calendar__date")
-            date = date.find("span", class_="date")
-            date = date.find("span").contents[0]
-            date = f"{date} {year}"
+            calendar_date_tag: Tag | None = day.find("td", class_=ForexFactorySectionClasses.CALENDAR_DATE)
+            date_tag: Tag | None = (
+                calendar_date_tag.find("span", class_=ForexFactorySectionClasses.DATE) if calendar_date_tag else None
+            )
+            date_element_tag: Tag | None = date_tag.find("span") if date_tag else None
 
-            day_events = {}
+            if not date_element_tag or not date_element_tag.contents:
+                continue
 
-            event_time = None
+            date_element: PageElement = date_element_tag.contents[0]
+            date: str = f"{date_element} {year}"
 
             for event in day_data[index]:
-                current_time = event.find("td", class_="calendar__time")
-                if current_time:
-                    event_time = current_time.contents[0] if current_time.contents else event_time
-                    if isinstance(event_time, Tag):
-                        event_time = current_time.contents[1] if current_time.contents else event_time
+                event_time: str | None = None
+                current_time_tag: Tag | None = event.find("td", class_=ForexFactorySectionClasses.TIME)
+                if current_time_tag:
+                    event_time_tag: PageElement | None = self.get_contents(current_time_tag)
+                    if event_time_tag is not None:
+                        event_time: str | None = str(event_time_tag)
 
-                currency = event.find("td", class_="calendar__currency")
-                if currency:
-                    currency = currency.contents[0] if currency.contents else None
+                if event_time is None:
+                    continue  # TODO: Add custom exception
 
+                time_type: ForexEventTimeType = self.get_time_type(event_time)
+                event_time_value = event_time if time_type == ForexEventTimeType.EXACT else None
 
-                impact = event.find("td", class_="calendar__impact")
-                if impact:
-                    classes = impact.find("span").get("class", [])
-                    impact_class = next((c for c in classes if c.startswith("icon--ff-impact-")), None)
-                    impact = IMPACT_MAP.get(impact_class) 
+                raw_event_time = event_time.strip()
 
-                event_name = event.find("span", class_="calendar__event-title")
-                if event_name:
-                    event_name = event_name.contents[0] if event_name.contents else None
+                time_type: ForexEventTimeType = self.get_time_type(raw_event_time)
 
-                actual = event.find("td", class_="calendar__actual")
-                if actual:
-                    actual = actual.find("span")
-                    if actual:
-                        actual = actual.contents[0] if actual.contents else None
+                event_time_value: str | None = None
+                if time_type == ForexEventTimeType.EXACT:
+                    event_time_value = raw_event_time
 
-                forecast = event.find("td", class_="calendar__forecast")
-                if forecast:
-                    forecast = forecast.find("span")
-                    if forecast:
-                        forecast = forecast.contents[0] if forecast.contents else None
+                currency_tag: Tag | None = event.find("td", class_=ForexFactorySectionClasses.CURRENCY)
+                currency: PageElement | None = self.get_contents(currency_tag)
 
-                previous_tag = event.find("td", class_="calendar__previous")
-                previous = None
+                impact_tag: Tag | None = event.find("td", class_=ForexFactorySectionClasses.IMPACT)
+                impact: ForexFactoryImpact | None = self.get_impact_value(impact_tag) 
+
+                event_name_tag: Tag | None = event.find("span", class_=ForexFactorySectionClasses.EVENT_TITLE)
+                event_name: PageElement | None = self.get_contents(event_name_tag)
+
+                actual_tag: Tag | None = event.find("td", class_=ForexFactorySectionClasses.ACTUAL)
+                actual: str | None = str(self.get_values_for_numericals(actual_tag))
+
+                forecast_tag = event.find("td", class_=ForexFactorySectionClasses.FORECAST)
+                forecast: str | None = str(self.get_values_for_numericals(forecast_tag))
+
+                previous_tag: Tag | None = event.find("td", class_=ForexFactorySectionClasses.PREVIOUS)
+                previous: PageElement | None = None
                 if previous_tag:
                     previous_tag = previous_tag.find("span", recursive=True)
 
-                    if previous_tag is None:
-                        previous = None
-                    elif not previous_tag.contents:
-                        previous = None
-                    else:
-                        previous = previous_tag.contents[0]
+                    previous: PageElement | None = self.get_contents(previous_tag)
 
-                day_events.update({
-                    "date": date,
-                    "time": event_time,
-                    "currency": currency,
-                    "impact": impact,
-                    "name": event_name,
-                    "actual": actual,
-                    "forecast": forecast,
-                    "previous": previous
-                })
+                event_record: ForexFactoryEventSchema = ForexFactoryEventSchema(
+                    event_date=date,
+                    event_time=event_time_value,
+                    event_time_type=time_type,
+                    currency=ForexFactoryCurrencies(currency),
+                    impact=ForexFactoryImpact(impact),
+                    name=str(event_name),
+                    actual=ForexFactoryNumericValue.parse_str_into_numerical(actual),
+                    forecast=ForexFactoryNumericValue.parse_str_into_numerical(forecast),
+                    previous=ForexFactoryNumericValue.parse_str_into_numerical(str(previous)),
+                )
 
-                month_data.append(day_events)
+                month_data.append(event_record.model_dump())
 
-        return month_data
+        return pl.DataFrame(schema=ForexFactoryDataframeSchema, data=month_data)
 
     @staticmethod
-    def split_by_day_breaker(rows):
-        result = []
-        current = []
+    def get_impact_value(impact_tag: Tag | None) -> ForexFactoryImpact | None:
+        """Resolve the impact enum from a table cell tag.
+
+        Args:
+            impact_tag: Tag containing the impact span.
+
+        Returns:
+            The mapped impact value, or None if unavailable.
+        """
+        if impact_tag is None:
+            return None
+
+        impact_span: Tag | None = impact_tag.find("span")
+        if impact_span is None:
+            return None
+
+        classes: Iterable[str] | None = impact_span.get("class")
+        if not classes:
+            return None
+
+        impact_class: str | None = next(
+            (
+                cls
+                for cls in classes
+                if cls.startswith(ForexFactorySectionClasses.IMPACT_COMMON)
+            ),
+            None,
+        )
+        if impact_class is None:
+            return None
+
+        impact_icon: ForexFactoryImpactIcon | None = ForexFactoryImpactIcon(impact_class)
+        return FOREX_FACTORY_IMPACT_MAP.get(impact_icon)
+
+    @staticmethod
+    def get_time_type(time_str: str) -> ForexEventTimeType:
+        """Classify the event time string into a known time type.
+
+        Args:
+            time_str: Raw time label from the calendar.
+
+        Returns:
+            The corresponding event time type enum.
+        """
+        value: str = time_str.strip().lower()
+
+        if value == "all day":
+            return ForexEventTimeType.ALL_DAY
+
+        if value == "tentative":
+            return ForexEventTimeType.TENTATIVE
+
+        if value.startswith("day"):
+            return ForexEventTimeType.MULTI_DAY
+
+        return ForexEventTimeType.EXACT
+
+    @staticmethod
+    def get_contents(tag: Tag | None) -> PageElement | None:
+        """Return the first child content of a tag, if present.
+
+        Args:
+            tag: BeautifulSoup tag to read contents from.
+
+        Returns:
+            The first content element, or None when missing.
+        """
+        if tag:
+            value: PageElement | None = tag.contents[0] if tag.contents else None
+            return value
+        return None
+            
+    def get_values_for_numericals(self, tag: Tag | None) -> PageElement | None:
+        """Extract the numeric value from a cell tag.
+
+        Args:
+            tag: BeautifulSoup tag that may contain a nested span.
+
+        Returns:
+            The first content of the nested span, or None.
+        """
+        if tag:
+            value_tag: Tag | None = tag.find("span", recursive=True)
+            return self.get_contents(value_tag)
+        return None
+
+    @staticmethod
+    def split_by_day_breaker(rows: list[Tag]) -> list[list[Tag]]:
+        """Split table rows into day groups separated by day-breaker rows.
+
+        Args:
+            rows: Calendar table rows that may include day-breaker separators.
+
+        Returns:
+            Groups of rows per day, excluding the separator rows.
+        """
+        result: list[list[Tag]] = []
+        current: list[Tag] = []
 
         for row in rows:
-            classes = row.get("class", [])
+            classes: list[str] | str | None = row.get("class")
+            if classes is None:
+                classes_list: list[str] = []
+            elif isinstance(classes, str):
+                classes_list = [classes]
+            else:
+                classes_list = [str(item) for item in classes]
 
             # check if row is a day-breaker
-            if ("calendar__row--day-breaker" in classes):
+            if ForexFactorySectionClasses.DAY_BREAKER_SEPARATOR in classes_list:
                 # only append non-empty groups
                 if current:
                     result.append(current)
