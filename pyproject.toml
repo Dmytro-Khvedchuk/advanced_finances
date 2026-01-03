@@ -3,7 +3,7 @@ name = "advanced-finances"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.13.2",
     "binance>=0.3.86",
@@ -20,6 +20,7 @@ dependencies = [
     "mkdocs>=1.6.1",
     "polars>=1.35.2",
     "pre-commit>=4.5.1",
+    "pydantic>=2.12.5",
     "python-binance>=1.0.32",
     "reportlab>=4.4.5",
     "requests>=2.32.5",
