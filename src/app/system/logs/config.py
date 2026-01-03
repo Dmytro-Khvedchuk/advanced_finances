@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger  # type: ignore[reportMissingImports]
 
+
 if TYPE_CHECKING:
     from loguru import Logger  # type: ignore[reportMissingImports]
 
