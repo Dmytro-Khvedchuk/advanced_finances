@@ -105,7 +105,7 @@ class ForexFactoryEventSchema(BaseModel):
             date: Parsed date value.
         """
         if isinstance(value, str):
-            return datetime.strptime(value, "%b %d %Y %z").date()
+            return datetime.strptime(value, "%b %d %Y").date()  # noqa: DTZ007 # TODO: fix noqa
         return value
     
     @field_validator("event_time", mode="before")
@@ -133,10 +133,10 @@ class ForexFactoryEventSchema(BaseModel):
             return None
 
         try:
-            return datetime.strptime(value, "%I:%M%p %z").time()
+            return datetime.strptime(value, "%I:%M%p").time()  # noqa: DTZ007 # TODO: fix noqa
         except ValueError:
             try:
-                return datetime.strptime(value, "%H:%M %z").time()
+                return datetime.strptime(value, "%H:%M").time()  # noqa: DTZ007 # TODO: fix noqa
             except ValueError as exc:
                 raise ValueError(f"Invalid time format: {value}, {exc}") from exc  # TODO: add custom exception.
 
