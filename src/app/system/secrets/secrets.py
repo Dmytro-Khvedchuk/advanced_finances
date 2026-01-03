@@ -6,3 +6,5 @@ import os
 class Secrets:
     """Class that contains all of the secrets and environmental variables."""
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    binance_api_key: str = os.getenv("BINANCE_API_KEY", "")
+    binance_secret_key: str = os.getenv("BINANCE_SECRET_KEY", "")
