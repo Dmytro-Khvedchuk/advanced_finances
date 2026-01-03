@@ -6,6 +6,7 @@ import polars as pl
 from bs4 import BeautifulSoup
 from bs4.element import PageElement, Tag
 from cloudscraper import CloudScraper, create_scraper  # type: ignore[reportMissingTypeStubs]
+from pydantic import ValidationError
 from requests import HTTPError, Response
 
 from src.app.data.api.domain.value_objects import (
@@ -173,17 +174,31 @@ class ForexFactoryScraper:
 
                     previous: PageElement | None = self.get_contents(previous_tag)
 
-                event_record: ForexFactoryEventSchema = ForexFactoryEventSchema(
-                    event_date=date,
-                    event_time=event_time_value,
-                    event_time_type=time_type,
-                    currency=ForexFactoryCurrencies(currency),
-                    impact=ForexFactoryImpact(impact),
-                    name=str(event_name),
-                    actual=ForexFactoryNumericValue.parse_str_into_numerical(actual),
-                    forecast=ForexFactoryNumericValue.parse_str_into_numerical(forecast),
-                    previous=ForexFactoryNumericValue.parse_str_into_numerical(str(previous)),
-                )
+                try:
+                    event_record = ForexFactoryEventSchema(
+                        event_date=date,
+                        event_time=event_time_value,
+                        event_time_type=time_type,
+                        currency=ForexFactoryCurrencies(currency),
+                        impact=ForexFactoryImpact(impact),
+                        name=str(event_name),
+                        actual=ForexFactoryNumericValue.parse_str_into_numerical(actual),
+                        forecast=ForexFactoryNumericValue.parse_str_into_numerical(forecast),
+                        previous=ForexFactoryNumericValue.parse_str_into_numerical(str(previous)),
+                    )
+                except ValidationError as exc:
+                    logger.warning(
+                        "Skipping invalid Forex Factory event",
+                        extra={
+                            "date": date,
+                            "raw_time": event_time,
+                            "event_name": str(event_name),
+                            "currency": str(currency),
+                            "url": url,
+                            "error": exc.errors(),
+                        },
+                    )
+                    continue
 
                 month_data.append(event_record.model_dump())
 
