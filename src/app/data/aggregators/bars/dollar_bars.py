@@ -1,0 +1,73 @@
+# noqa: D100
+# from typing import Any
+
+# from polars import DataFrame, Float64, Int64, col, concat, lit
+
+
+# def build_dollar_bars(
+#     data: DataFrame, bar_size: float
+# ) -> tuple[DataFrame | Any, DataFrame]:
+#     """
+#     Build a dollar bars from raw data
+
+#     :param data: Raw fetched data from binance, or directly a polars dataframe
+#     :type data: pl.DataFrame
+#     :param bar_size: amount of dollars for a bar formation
+#     :type bar_size: float
+#     :returns: dollar bars, unfinished part
+#     """
+#     if isinstance(data, DataFrame):
+#         df = data
+#     else:
+#         df = DataFrame(data)
+
+#     df = df.select(
+#         col("price").cast(Float64),
+#         col("quoteQty").cast(Float64),
+#         col("id").cast(Int64),
+#     ).sort("id")
+
+#     bar_id = 1
+#     bars = DataFrame()
+
+#     while not df.is_empty():
+#         df = df.with_columns(
+#             col("quoteQty").cum_sum().alias("cumulative_dollar_volume")
+#         )
+
+#         cross_mask = (col("cumulative_dollar_volume") >= bar_size) & (
+#             col("cumulative_dollar_volume").shift(1) < bar_size
+#         )
+
+#         df_until_cross = df.filter(
+#             (col("cumulative_dollar_volume") < bar_size) | cross_mask
+#         )
+
+#         if df_until_cross.is_empty():
+#             break
+
+#         bar_row = df_until_cross.select(
+#             [
+#                 lit(bar_id).alias("bar_id"),
+#                 col("id").first().alias("open_id"),
+#                 col("id").last().alias("close_id"),
+#                 col("price").first().alias("open"),
+#                 col("price").max().alias("high"),
+#                 col("price").min().alias("low"),
+#                 col("price").last().alias("close"),
+#                 col("quoteQty").sum().alias("dollars"),
+#                 len().alias("trades"),
+#             ]
+#         )
+
+#         bars = bar_row if bars.is_empty() else concat([bars, bar_row], how="vertical")
+
+#         df = df.join(df_until_cross.select("id"), on="id", how="anti").drop(
+#             "cumulative_dollar_volume"
+#         )
+
+#         bar_id += 1
+
+#     unfinished_part = DataFrame()
+
+#     return bars, unfinished_part
